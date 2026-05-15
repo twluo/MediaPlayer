@@ -69,7 +69,7 @@ watch(providers, loadAlbums, { deep: true });
 
 <style scoped>
 .album-grid-section {
-  padding: 24px;
+  padding: 12px 24px 24px;
 }
 
 .section-title {
@@ -84,6 +84,22 @@ watch(providers, loadAlbums, { deep: true });
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .album-grid-section {
+    padding: 16px 10px;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+  }
+
+  .album-grid {
+    grid-template-columns: repeat(3, 33%);
+    gap: 6px;
+  }
 }
 
 .state-message {

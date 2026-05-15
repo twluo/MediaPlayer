@@ -90,97 +90,77 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
       </div>
     </div>
 
-    <!-- Center: playback controls + progress -->
-    <div class="playback">
-      <div class="control-row">
-        <button
-          class="icon-btn"
-          @click="toggleShuffle"
-          :class="{ active: shuffleMode }"
-          :aria-label="shuffleMode ? `Shuffle` : `Ordered`"
+    <!-- Center: playback controls -->
+    <div class="control-row">
+      <button
+        class="icon-btn shuffle-btn"
+        @click="toggleShuffle"
+        :class="{ active: shuffleMode }"
+        :aria-label="shuffleMode ? `Shuffle` : `Ordered`"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+          <path
+            d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
+          />
+        </svg>
+      </button>
+
+      <button class="icon-btn" aria-label="Previous" @click="prevSong">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+        </svg>
+      </button>
+
+      <button
+        class="play-btn"
+        :aria-label="isPlaying ? 'Pause' : 'Play'"
+        @click="togglePlay"
+      >
+        <svg
+          v-if="isPlaying"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          width="22"
+          height="22"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-            <path
-              d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
-            />
-          </svg>
-        </button>
-
-        <button class="icon-btn" aria-label="Previous" @click="prevSong">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
-          </svg>
-        </button>
-
-        <button
-          class="play-btn"
-          :aria-label="isPlaying ? 'Pause' : 'Play'"
-          @click="togglePlay"
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+        </svg>
+        <svg
+          v-else
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          width="22"
+          height="22"
         >
-          <svg
-            v-if="isPlaying"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            width="22"
-            height="22"
-          >
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-          </svg>
-          <svg
-            v-else
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            width="22"
-            height="22"
-          >
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </button>
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </button>
 
-        <button class="icon-btn" aria-label="Next" @click="nextSong">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-          </svg>
-        </button>
+      <button class="icon-btn" aria-label="Next" @click="nextSong">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+        </svg>
+      </button>
 
-        <button
-          class="icon-btn repeat-btn"
-          :class="{ active: repeatMode !== 'off' }"
-          :aria-label="
-            repeatMode === 'one'
-              ? 'Repeat one'
-              : repeatMode === 'all'
-                ? 'Repeat all'
-                : 'Repeat'
-          "
-          @click="toggleRepeat"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-            <path
-              d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"
-            />
-          </svg>
-          <span v-if="repeatMode === 'one'" class="repeat-one-badge">1</span>
-        </button>
-      </div>
-
-      <div class="progress-row">
-        <span class="time">{{
-          currTrack === undefined ? "0:00" : formatDuration(currentTime)
-        }}</span>
-        <input
-          type="range"
-          class="progress-track"
-          min="0"
-          :max="duration || 100"
-          step="any"
-          :value="currentTime"
-          :style="{ '--pct': trackProgressPct + '%' }"
-          aria-label="Seek"
-          @input="onScrub"
-        />
-        <span class="time end">{{ formatDuration(duration) }}</span>
-      </div>
+      <button
+        class="icon-btn repeat-btn"
+        :class="{ active: repeatMode !== 'off' }"
+        :aria-label="
+          repeatMode === 'one'
+            ? 'Repeat one'
+            : repeatMode === 'all'
+              ? 'Repeat all'
+              : 'Repeat'
+        "
+        @click="toggleRepeat"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+          <path
+            d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"
+          />
+        </svg>
+        <span v-if="repeatMode === 'one'" class="repeat-one-badge">1</span>
+      </button>
     </div>
 
     <!-- Right: volume + extras -->
@@ -277,6 +257,25 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
         />
       </div>
     </div>
+
+    <!-- Seek bar: center column on desktop, full width on mobile -->
+    <div class="progress-row">
+      <span class="time">{{
+        currTrack === undefined ? "0:00" : formatDuration(currentTime)
+      }}</span>
+      <input
+        type="range"
+        class="progress-track"
+        min="0"
+        :max="duration || 100"
+        step="any"
+        :value="currentTime"
+        :style="{ '--pct': trackProgressPct + '%' }"
+        aria-label="Seek"
+        @input="onScrub"
+      />
+      <span class="time end">{{ formatDuration(duration) }}</span>
+    </div>
   </div>
 </template>
 
@@ -292,9 +291,12 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 480px) minmax(0, 1fr);
-  align-items: center;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "track  controls  extras"
+    "track  progress  extras";
   padding: 0 16px;
-  gap: 16px;
+  column-gap: 16px;
 }
 
 /* ── Shared icon button ──────────────────────── */
@@ -318,6 +320,8 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
 
 /* ── Left: track info ────────────────────────── */
 .track-info {
+  grid-area: track;
+  align-self: center;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -363,19 +367,14 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
   text-overflow: ellipsis;
 }
 
-/* ── Center: playback ────────────────────────── */
-.playback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
+/* ── Center: controls ────────────────────────── */
 .control-row {
+  grid-area: controls;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  padding-top: 10px;
 }
 
 .play-btn {
@@ -401,10 +400,12 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
 }
 
 .progress-row {
+  grid-area: progress;
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
+  padding-bottom: 10px;
 }
 
 .time {
@@ -506,6 +507,8 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
 
 /* ── Right: extras ───────────────────────────── */
 .extras {
+  grid-area: extras;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -621,5 +624,57 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
 
 .volume-track:hover::-moz-range-thumb {
   opacity: 1;
+}
+
+/* ── Mobile (≤ 640px) ───────────────────────── */
+@media (max-width: 640px) {
+  .player-bar {
+    height: auto;
+    padding: 0;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "progress progress"
+      "track    controls";
+    column-gap: 0;
+  }
+
+  .progress-row {
+    padding: 6px 16px 4px;
+  }
+
+  .time {
+    display: none;
+  }
+
+  .track-info {
+    padding: 6px 12px 10px;
+  }
+
+  .track-art {
+    width: 40px;
+    height: 40px;
+  }
+
+  .track-art .cover {
+    width: 40px;
+    height: 40px;
+  }
+
+  .control-row {
+    padding: 6px 12px 10px;
+    padding-top: 6px;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .shuffle-btn,
+  .repeat-btn {
+    display: none;
+  }
+
+  .extras {
+    display: none;
+  }
 }
 </style>

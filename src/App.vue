@@ -18,8 +18,13 @@ import MediaPlayerBar from "./components/MediaPlayerBar.vue";
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  overflow-x: hidden;
   background: #121212;
   font-family:
     "Inter",
@@ -32,8 +37,9 @@ body {
 }
 
 .app {
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 72px 16px 104px;
+  padding: 52px 16px 104px;
 }
 </style>

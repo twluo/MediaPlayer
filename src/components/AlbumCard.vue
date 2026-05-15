@@ -183,7 +183,7 @@ async function handlePlayClick(e: MouseEvent) {
   z-index: 1;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   opacity: 0;
   transition:
@@ -307,5 +307,47 @@ async function handlePlayClick(e: MouseEvent) {
 }
 .play-btn.error {
   background: #f15e6c;
+}
+
+/* ── Touch / hover-less devices: play button always visible ── */
+@media (hover: none) {
+  .play-btn {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Mobile small cards ──────────────────────────────────── */
+@media (max-width: 600px) {
+  .album-card {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .play-btn {
+    width: 34px;
+    height: 34px;
+    bottom: 6px;
+    right: 6px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .play-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .title {
+    font-size: 0.78rem;
+  }
+
+  .artist {
+    font-size: 0.72rem;
+  }
+
+  .meta {
+    display: none;
+  }
 }
 </style>
