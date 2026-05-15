@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { Album } from "../mediaProviders/MediaProvider";
 import { useMediaPlayer } from "../composables/useMediaPlayer";
 import { useMediaProviders } from "../composables/useMediaProviders";
@@ -18,6 +18,30 @@ const isCurrentAlbum = computed(
 );
 
 const fetchError = ref<boolean>(false);
+const imageLoaded = ref(false);
+const imageSrc = ref("");
+const cardEl = ref<HTMLElement | null>(null);
+
+let observer: IntersectionObserver | null = null;
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) {
+        imageSrc.value = props.album.coverUrl;
+        observer?.disconnect();
+        observer = null;
+      }
+    },
+    { rootMargin: "200px" },
+  );
+  if (cardEl.value) observer.observe(cardEl.value);
+});
+
+onUnmounted(() => {
+  observer?.disconnect();
+  observer = null;
+});
 
 async function handlePlayClick(e: MouseEvent) {
   e.preventDefault();
@@ -43,13 +67,14 @@ async function handlePlayClick(e: MouseEvent) {
     :to="`/albums/${album.providerId}/${album.id}`"
     class="album-card-link"
   >
-    <article class="album-card">
-      <div class="cover-wrap">
+    <article class="album-card" ref="cardEl">
+      <div class="cover-wrap" :class="{ 'is-loaded': imageLoaded }">
         <img
-          :src="album.coverUrl"
+          :src="imageSrc"
           :alt="`${album.title} cover`"
           class="cover"
-          loading="lazy"
+          :class="{ loaded: imageLoaded }"
+          @load="imageLoaded = true"
         />
         <button
           class="play-btn"
@@ -125,14 +150,48 @@ async function handlePlayClick(e: MouseEvent) {
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  background: #1e1e1e;
+}
+
+/* Shimmer skeleton shown while the image is loading */
+.cover-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.cover-wrap.is-loaded::before {
+  animation: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .cover {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.3s ease;
+  opacity: 0;
+  transition:
+    opacity 0.4s ease,
+    transform 0.3s ease;
+}
+
+.cover.loaded {
+  opacity: 1;
 }
 
 .album-card:hover .cover {

@@ -20,7 +20,7 @@ const step = ref<"pick" | "configure">("pick");
 const selected = ref<MediaProviderType>(null);
 
 const form = ref({ id: "" });
-const navidrome = ref({ url: "", username: "", token: "", saltToken: "" });
+const navidrome = ref({ url: "", username: "", password: "" });
 const plex = ref({ url: "", token: "" });
 
 const idDuplicate = computed(
@@ -39,8 +39,7 @@ const canConnect = computed(() => {
     return (
       navidrome.value.url.trim() !== "" &&
       navidrome.value.username.trim() !== "" &&
-      navidrome.value.token.trim() !== "" &&
-      navidrome.value.saltToken.trim() !== ""
+      navidrome.value.password.trim() !== ""
     );
   return false;
 });
@@ -75,8 +74,7 @@ function connect() {
             id: form.value.id.trim(),
             url: navidrome.value.url,
             username: navidrome.value.username,
-            token: navidrome.value.token,
-            saltToken: navidrome.value.saltToken,
+            password: navidrome.value.password,
           },
         };
   emit("connect", base);
@@ -254,23 +252,13 @@ function connect() {
             />
           </div>
           <div class="form-group">
-            <label class="form-label">Token</label>
+            <label class="form-label">Password</label>
             <input
-              v-model="navidrome.token"
+              v-model="navidrome.password"
               type="password"
               class="form-input"
-              placeholder="MD5(password + salt)"
-              autocomplete="off"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Salt</label>
-            <input
-              v-model="navidrome.saltToken"
-              type="text"
-              class="form-input"
-              placeholder="random string used in MD5 hash"
-              autocomplete="off"
+              placeholder="Your Navidrome password"
+              autocomplete="current-password"
             />
           </div>
         </template>

@@ -1,6 +1,7 @@
 import type { Album, Track } from "./MediaProvider";
 import { MediaProvider } from "./MediaProvider";
 import { formatDuration } from "../utils/format";
+import { Md5 } from "ts-md5";
 
 interface SubsonicAlbum {
   id: string;
@@ -28,24 +29,33 @@ export interface NavidromeMediaProviderConfig {
   id: string;
   url: string;
   username: string;
-  token: string;
-  saltToken: string;
+  password: string;
+}
+
+function randomSalt(length = 6): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes)
+    .map((b) => chars[b % chars.length])
+    .join("");
 }
 
 export class NavidromeMediaProvider extends MediaProvider {
   user: string;
-  saltToken: string;
+  password: string;
   clientId: string = "bananaMediaPlayer";
   version: string = "1.16.1";
 
-  constructor(id = "", baseUrl = "", user = "", token = "", saltToken = "") {
-    super(id, baseUrl, token);
+  constructor(id = "", baseUrl = "", user = "", password = "") {
+    super(id, baseUrl, "");
     this.user = user;
-    this.saltToken = saltToken;
+    this.password = password;
   }
 
   private authParams() {
-    return `u=${this.user}&v=${this.version}&c=${this.clientId}&s=${this.saltToken}&t=${this.token}`;
+    const salt = randomSalt();
+    const token = Md5.hashStr(this.password + salt);
+    return `u=${this.user}&v=${this.version}&c=${this.clientId}&s=${salt}&t=${token}`;
   }
 
   private processAlbum(album: SubsonicAlbum): Album {

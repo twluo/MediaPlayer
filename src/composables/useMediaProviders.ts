@@ -26,8 +26,8 @@ function load(): Map<string, ProviderEntry> {
 
 function instantiate(entry: ProviderEntry) {
   if (entry.type === MediaProviderTypeNavidrome) {
-    const { id, url, username, token, saltToken } = entry.config;
-    return new NavidromeMediaProvider(id, url, username, token, saltToken);
+    const { id, url, username, password } = entry.config;
+    return new NavidromeMediaProvider(id, url, username, password);
   } else if (entry.type === MediaProviderTypePlex) {
     const { id, url, token } = entry.config;
     return new PlexMediaProvider(id, url, token);
