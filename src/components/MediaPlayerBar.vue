@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useMediaPlayer, formatDuration } from "../composables/useMediaPlayer";
 import QueuePopup from "./QueuePopup.vue";
 
@@ -40,6 +40,32 @@ function onVolumeChange(e: Event) {
 
 // ── Queue popup ───────────────────────────────
 const showQueue = ref<boolean>(false);
+
+// ── Mobile expanded panel ──────────────────────
+const expanded = ref<boolean>(false);
+const playerBarEl = ref<HTMLElement | null>(null);
+const playerBarH = ref(88);
+let barObserver: ResizeObserver | null = null;
+
+function openExpanded() {
+  if (window.innerWidth <= 640) expanded.value = !expanded.value;
+}
+
+let savedScrollY = 0;
+
+watch(expanded, (val) => {
+  if (val) {
+    savedScrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${savedScrollY}px`;
+    document.body.style.width = "100%";
+  } else {
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    window.scrollTo(0, savedScrollY);
+  }
+});
 const queueWrapperEl = ref<HTMLElement | null>(null);
 
 function handleDocClick(e: MouseEvent) {
@@ -52,14 +78,29 @@ function handleDocClick(e: MouseEvent) {
   }
 }
 
-onMounted(() => document.addEventListener("click", handleDocClick));
-onUnmounted(() => document.removeEventListener("click", handleDocClick));
+onMounted(() => {
+  document.addEventListener("click", handleDocClick);
+  if (playerBarEl.value) {
+    playerBarH.value = playerBarEl.value.offsetHeight;
+    barObserver = new ResizeObserver(() => {
+      playerBarH.value = playerBarEl.value?.offsetHeight ?? playerBarH.value;
+    });
+    barObserver.observe(playerBarEl.value);
+  }
+});
+onUnmounted(() => {
+  document.removeEventListener("click", handleDocClick);
+  barObserver?.disconnect();
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.width = "";
+});
 </script>
 
 <template>
-  <div class="player-bar">
-    <!-- Left: track info -->
-    <div class="track-info">
+  <div class="player-bar" ref="playerBarEl">
+    <!-- Left: track info (tap to expand on mobile) -->
+    <div class="track-info" @click="openExpanded">
       <div class="track-art">
         <svg
           v-if="currTrack === undefined"
@@ -276,7 +317,79 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
       />
       <span class="time end">{{ formatDuration(duration) }}</span>
     </div>
+
+    <!-- ── Mobile queue sheet (absolute = always flush) ── -->
+    <Transition name="sheet-up">
+      <div v-if="expanded" class="queue-sheet">
+        <div class="sheet-header">
+          <button
+            class="icon-btn"
+            :class="{ active: shuffleMode }"
+            :aria-label="shuffleMode ? 'Shuffle on' : 'Shuffle off'"
+            @click="toggleShuffle"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+              <path
+                d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"
+              />
+            </svg>
+          </button>
+          <span class="sheet-label">Queue</span>
+          <button
+            class="icon-btn repeat-btn"
+            :class="{ active: repeatMode !== 'off' }"
+            :aria-label="
+              repeatMode === 'one'
+                ? 'Repeat one'
+                : repeatMode === 'all'
+                  ? 'Repeat all'
+                  : 'Repeat off'
+            "
+            @click="toggleRepeat"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+              <path
+                d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"
+              />
+            </svg>
+            <span v-if="repeatMode === 'one'" class="repeat-one-badge">1</span>
+          </button>
+        </div>
+
+        <ul class="sheet-track-list">
+          <li
+            v-for="(track, index) in currPlaylist"
+            :key="track.id"
+            class="sheet-track-row"
+            :class="{ 'is-current': index === currIndex }"
+            @click="
+              playSong(index);
+              expanded = false;
+            "
+          >
+            <div class="sheet-track-meta">
+              <span class="sheet-title-row">
+                <div
+                  v-if="index === currIndex"
+                  class="eq-bars"
+                  :class="{ paused: !isPlaying }"
+                >
+                  <span class="eq-bar" />
+                  <span class="eq-bar" />
+                  <span class="eq-bar" />
+                </div>
+                <span class="sheet-tl-title">{{ track.title }}</span>
+              </span>
+              <span class="sheet-tl-artist">{{ track.artist }}</span>
+            </div>
+            <span class="sheet-tl-duration">{{ track.duration }}</span>
+          </li>
+        </ul>
+      </div>
+    </Transition>
   </div>
+
+  <div v-if="expanded" class="sheet-backdrop" @click="expanded = false" />
 </template>
 
 <style scoped>
@@ -310,7 +423,6 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
   cursor: pointer;
   padding: 6px;
   border-radius: 50%;
-  transition: color 0.15s;
   flex-shrink: 0;
 }
 
@@ -626,6 +738,189 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
   opacity: 1;
 }
 
+/* ── Mobile queue sheet ────────────────────── */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 198;
+}
+
+.queue-sheet {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  max-height: 55vh;
+  background: #1e1e1e;
+  border-radius: 12px 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet-up-enter-active,
+.sheet-up-leave-active {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sheet-up-enter-from,
+.sheet-up-leave-to {
+  transform: translateY(100%);
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sheet-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #b3b3b3;
+}
+
+.sheet-header .icon-btn {
+  color: #b3b3b3;
+  padding: 6px;
+}
+.sheet-header .icon-btn.active {
+  color: #1db954;
+}
+/* color is state-only — no hover/press changes */
+.sheet-header .icon-btn:not(.active):hover,
+.sheet-header .icon-btn:not(.active):active {
+  color: #b3b3b3;
+}
+
+.sheet-track-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+
+.sheet-track-list::-webkit-scrollbar {
+  width: 4px;
+}
+.sheet-track-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sheet-track-list::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 2px;
+}
+
+.sheet-track-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+.sheet-track-row:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+.sheet-track-row.is-current {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sheet-track-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sheet-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sheet-tl-title {
+  font-size: 0.875rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.is-current .sheet-tl-title {
+  color: #1db954;
+}
+
+.sheet-tl-artist {
+  font-size: 0.75rem;
+  color: #b3b3b3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-tl-duration {
+  font-size: 0.75rem;
+  color: #b3b3b3;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* eq bars */
+.eq-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.eq-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: #1db954;
+  animation: eq-sheet 0.9s ease-in-out infinite;
+}
+.eq-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.eq-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.eq-bars.paused .eq-bar {
+  animation: none;
+  height: 4px;
+}
+
+@keyframes eq-sheet {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+/* cursor hint for track-info on mobile */
+@media (max-width: 640px) {
+  .track-info {
+    cursor: pointer;
+  }
+}
+
 /* ── Mobile (≤ 640px) ───────────────────────── */
 @media (max-width: 640px) {
   .player-bar {
@@ -668,8 +963,8 @@ onUnmounted(() => document.removeEventListener("click", handleDocClick));
     gap: 4px;
   }
 
-  .shuffle-btn,
-  .repeat-btn {
+  .control-row .shuffle-btn,
+  .control-row .repeat-btn {
     display: none;
   }
 
