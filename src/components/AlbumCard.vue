@@ -27,6 +27,7 @@ let observer: IntersectionObserver | null = null;
 onMounted(() => {
   observer = new IntersectionObserver(
     (entries) => {
+      if (entries[0] === undefined) return;
       if (entries[0].isIntersecting) {
         imageSrc.value = props.album.coverUrl;
         observer?.disconnect();
@@ -202,6 +203,7 @@ async function handlePlayClick(e: MouseEvent) {
   position: absolute;
   bottom: 10px;
   right: 10px;
+  z-index: 2;
   width: 44px;
   height: 44px;
   border-radius: 50%;
