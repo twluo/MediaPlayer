@@ -2,11 +2,11 @@
 import { ref, computed, onMounted } from "vue";
 import type { Album } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "../composables/useMediaProviders";
+import { useSearchState } from "../composables/useSearchState";
 import AlbumCard from "../components/AlbumCard.vue";
 
 const { fetchAlbums } = useMediaProviders();
-
-const query = ref<string>("");
+const { query } = useSearchState();
 const allAlbums = ref<Album[]>([]);
 const loading = ref<boolean>(true);
 const error = ref<string | null>(null);
