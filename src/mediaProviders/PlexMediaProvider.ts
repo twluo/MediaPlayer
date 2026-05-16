@@ -10,8 +10,11 @@ export interface PlexMediaProviderConfig {
 }
 
 export class PlexMediaProvider extends MediaProvider {
+  token: string;
+
   constructor(id = "", baseUrl = "", token = "") {
-    super(id, baseUrl, token);
+    super(id, baseUrl);
+    this.token = token;
   }
 
   private headers(): Record<string, string> {

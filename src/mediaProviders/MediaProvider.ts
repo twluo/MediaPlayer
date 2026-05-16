@@ -39,12 +39,10 @@ export interface Track {
 export abstract class MediaProvider {
   id: string;
   baseUrl: string;
-  token: string;
 
-  constructor(id = "", baseUrl = "", token = "") {
+  constructor(id = "", baseUrl = "") {
     this.id = id;
     this.baseUrl = baseUrl;
-    this.token = token;
   }
 
   async fetchJson(url: string, headers: Record<string, string> = {}) {

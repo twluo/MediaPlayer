@@ -47,7 +47,7 @@ export class NavidromeMediaProvider extends MediaProvider {
   version: string = "1.16.1";
 
   constructor(id = "", baseUrl = "", user = "", password = "") {
-    super(id, baseUrl, "");
+    super(id, baseUrl);
     this.user = user;
     this.password = password;
   }

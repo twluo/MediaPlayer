@@ -1,6 +1,7 @@
 import { ref, watch } from "vue";
 import type {
   Album,
+  MediaProvider,
   MediaProviderConfig,
 } from "../mediaProviders/MediaProvider";
 import {
@@ -12,7 +13,10 @@ import { PlexMediaProvider } from "../mediaProviders/PlexMediaProvider";
 
 const STORAGE_KEY = "media-player:providers";
 
-export type ProviderEntry = MediaProviderConfig & { enabled: boolean };
+export type ProviderEntry = MediaProviderConfig & {
+  enabled: boolean;
+  instance?: MediaProvider;
+};
 
 function load(): Map<string, ProviderEntry> {
   try {
@@ -24,16 +28,18 @@ function load(): Map<string, ProviderEntry> {
   }
 }
 
-function instantiate(entry: ProviderEntry) {
+function getInstance(entry: ProviderEntry): MediaProvider {
+  if (entry.instance) return entry.instance;
   if (entry.type === MediaProviderTypeNavidrome) {
     const { id, url, username, password } = entry.config;
-    return new NavidromeMediaProvider(id, url, username, password);
+    entry.instance = new NavidromeMediaProvider(id, url, username, password);
   } else if (entry.type === MediaProviderTypePlex) {
     const { id, url, token } = entry.config;
-    return new PlexMediaProvider(id, url, token);
+    entry.instance = new PlexMediaProvider(id, url, token);
   } else {
     throw new Error("Invalid Entry");
   }
+  return entry.instance;
 }
 
 // Module-level singleton — state is shared across all component instances
@@ -52,7 +58,9 @@ watch(
   (newProviders) => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify([...newProviders.values()]),
+      JSON.stringify([...newProviders.values()], (key, value) =>
+        key === "instance" ? undefined : value,
+      ),
     );
   },
   { deep: true },
@@ -99,7 +107,7 @@ export function useMediaProviders() {
         enabled.map(async (entry) => {
           const cached = albumListCache.get(entry.config.id);
           if (cached) return cached;
-          const albums = await instantiate(entry).fetchAlbums();
+          const albums = await getInstance(entry).fetchAlbums();
           albumListCache.set(entry.config.id, albums);
           return albums;
         }),
@@ -120,7 +128,7 @@ export function useMediaProviders() {
       if (!provider) return [];
       const cached = albumListCache.get(providerId);
       if (cached) return cached;
-      const albums = await instantiate(provider).fetchAlbums();
+      const albums = await getInstance(provider).fetchAlbums();
       albumListCache.set(providerId, albums);
       return albums;
     }
@@ -136,7 +144,7 @@ export function useMediaProviders() {
       enabled.map(async (entry) => {
         const cached = recentAlbumsListCache.get(entry.config.id);
         if (cached) return cached;
-        const albums = await instantiate(entry).fetchRecentAlbums();
+        const albums = await getInstance(entry).fetchRecentAlbums();
         recentAlbumsListCache.set(entry.config.id, albums);
         return albums;
       }),
@@ -160,7 +168,7 @@ export function useMediaProviders() {
     const cacheKey = `${providerId}:${albumId}`;
     const cached = albumCache.get(cacheKey);
     if (cached) return cached;
-    const album = await instantiate(provider).fetchAlbum(albumId);
+    const album = await getInstance(provider).fetchAlbum(albumId);
     albumCache.set(cacheKey, album);
     return album;
   }
