@@ -118,7 +118,13 @@ async function handlePlayClick(e: MouseEvent) {
           <span class="title-text">{{ album.title }}</span>
         </p>
         <p class="artist">{{ album.artist }}</p>
-        <p class="meta">{{ album.year }} &middot; {{ album.genre }}</p>
+        <p class="meta">
+          {{ album.providerId }}
+          &middot; {{ album.year }}
+          <template v-if="album.genre !== 'No Genre'">
+            &middot; {{ album.genre }}
+          </template>
+        </p>
       </div>
     </article>
   </RouterLink>

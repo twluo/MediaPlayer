@@ -95,7 +95,9 @@ export function useMediaProviders() {
         .filter(
           (r): r is PromiseFulfilledResult<Album[]> => r.status === "fulfilled",
         )
-        .flatMap((r) => r.value);
+        .flatMap((r) => r.value)
+        .filter((r) => r.artist !== undefined)
+        .sort((a, b) => a.artist.localeCompare(b.artist));
     } else {
       const provider = providers.value.get(providerId);
       if (provider) {
@@ -118,7 +120,10 @@ export function useMediaProviders() {
       .filter(
         (r): r is PromiseFulfilledResult<Album[]> => r.status === "fulfilled",
       )
-      .flatMap((r) => r.value);
+      .flatMap((r) => r.value)
+      .filter((r) => r.artist !== undefined)
+      .sort((a, b) => b.addedDate - a.addedDate)
+      .slice(0, 50);
   }
 
   async function fetchAlbum(

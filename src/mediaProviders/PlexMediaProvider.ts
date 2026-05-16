@@ -34,8 +34,8 @@ export class PlexMediaProvider extends MediaProvider {
   private mapAlbum(album: any): Album {
     return {
       id: String(album.ratingKey),
-      title: album.title || "Unknown Title",
-      artist: album.parentTitle || "Unknown Artist",
+      title: album.title,
+      artist: album.parentTitle,
       coverUrl: this.thumbUrl(album.thumb),
       genre: album.Genre?.[0]?.tag ?? "No Genre",
       year: album.year?.toString() ?? "????",
@@ -92,8 +92,8 @@ export class PlexMediaProvider extends MediaProvider {
 
     const album: Album = {
       id: albumId,
-      title: mc.parentTitle || "Unknown Title",
-      artist: mc.grandparentTitle || "Unknown Artist",
+      title: mc.parentTitle,
+      artist: mc.grandparentTitle,
       coverUrl,
       genre: mc.Genre?.[0]?.tag ?? "No Genre",
       year: mc.parentYear?.toString() ?? "????",

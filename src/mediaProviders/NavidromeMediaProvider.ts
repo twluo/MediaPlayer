@@ -5,11 +5,11 @@ import { Md5 } from "ts-md5";
 
 interface SubsonicAlbum {
   id: string;
-  name?: string;
-  artist?: string;
-  genre?: string;
-  releaseDate?: { year?: number };
-  originalReleaseDate?: { year?: number };
+  name: string;
+  artist: string;
+  genre: string;
+  releaseDate: { year: number };
+  originalReleaseDate: { year: number };
   created: string;
   song?: SubsonicSong[];
 }
@@ -17,11 +17,11 @@ interface SubsonicAlbum {
 interface SubsonicSong {
   id: string;
   albumId: string;
-  track?: number;
-  discNumber?: number;
+  track: number;
+  discNumber: number;
   contentType: string;
   title: string;
-  artist?: string;
+  artist: string;
   duration: number;
 }
 
@@ -61,8 +61,8 @@ export class NavidromeMediaProvider extends MediaProvider {
   private processAlbum(album: SubsonicAlbum): Album {
     return {
       id: album.id,
-      title: album.name || "Unknown Title",
-      artist: album.artist || "Unknown Artist",
+      title: album.name,
+      artist: album.artist,
       coverUrl: `${this.baseUrl}/rest/getCoverArt?${this.authParams()}&id=${album.id}`,
       genre: album.genre || "Unknown Genre",
       year:

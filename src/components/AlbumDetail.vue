@@ -80,8 +80,12 @@ const hasMultipleDiscs = computed(() => groupedTracks.value.length > 1);
           <h1 class="title">{{ album.title }}</h1>
           <p class="artist">{{ album.artist }}</p>
           <p class="sub">
-            {{ album.year }} &middot; {{ album.genre }} &middot;
-            {{ tracks.length }} tracks
+            {{ album.providerId }}
+            &middot; {{ album.year }}
+            <template v-if="album.genre !== 'No Genre'">
+              &middot; {{ album.genre }}
+            </template>
+            &middot; {{ tracks.length }} tracks
           </p>
         </div>
       </aside>
