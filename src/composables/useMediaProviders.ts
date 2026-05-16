@@ -39,8 +39,13 @@ function instantiate(entry: ProviderEntry) {
 // Module-level singleton — state is shared across all component instances
 const providers = ref<Map<string, ProviderEntry>>(load());
 
-// Module-level album cache
+// Module-level album cache (individual album details, keyed "providerId:albumId")
 const albumCache = new Map<string, Album>();
+
+// Per-provider list caches — keyed by provider ID.
+// Cleared when a provider is removed so the next fetch gets fresh data.
+const albumListCache = new Map<string, Album[]>();
+const recentAlbumsListCache = new Map<string, Album[]>();
 
 watch(
   providers,
@@ -63,6 +68,8 @@ export function useMediaProviders() {
 
   function removeProvider(id: string) {
     providers.value.delete(id);
+    albumListCache.delete(id);
+    recentAlbumsListCache.delete(id);
     for (const key of albumCache.keys()) {
       if (key.startsWith(`${id}:`)) albumCache.delete(key);
     }
@@ -89,7 +96,13 @@ export function useMediaProviders() {
       });
       if (enabled.length === 0) return [];
       const results = await Promise.allSettled(
-        enabled.map((entry) => instantiate(entry).fetchAlbums()),
+        enabled.map(async (entry) => {
+          const cached = albumListCache.get(entry.config.id);
+          if (cached) return cached;
+          const albums = await instantiate(entry).fetchAlbums();
+          albumListCache.set(entry.config.id, albums);
+          return albums;
+        }),
       );
       return results
         .filter(
@@ -97,13 +110,19 @@ export function useMediaProviders() {
         )
         .flatMap((r) => r.value)
         .filter((r) => r.artist !== undefined)
-        .sort((a, b) => a.artist.localeCompare(b.artist));
+        .sort((a, b) =>
+          a.artist === b.artist
+            ? a.title.localeCompare(b.title)
+            : a.artist.localeCompare(b.artist),
+        );
     } else {
       const provider = providers.value.get(providerId);
-      if (provider) {
-        return await instantiate(provider).fetchAlbums();
-      }
-      return [];
+      if (!provider) return [];
+      const cached = albumListCache.get(providerId);
+      if (cached) return cached;
+      const albums = await instantiate(provider).fetchAlbums();
+      albumListCache.set(providerId, albums);
+      return albums;
     }
   }
 
@@ -114,7 +133,13 @@ export function useMediaProviders() {
     });
     if (enabled.length === 0) return [];
     const results = await Promise.allSettled(
-      enabled.map((entry) => instantiate(entry).fetchRecentAlbums()),
+      enabled.map(async (entry) => {
+        const cached = recentAlbumsListCache.get(entry.config.id);
+        if (cached) return cached;
+        const albums = await instantiate(entry).fetchRecentAlbums();
+        recentAlbumsListCache.set(entry.config.id, albums);
+        return albums;
+      }),
     );
     return results
       .filter(
