@@ -60,10 +60,12 @@ playback.addEventListener("pause", () => {
 
 playback.addEventListener("timeupdate", () => {
   currentTime.value = playback.currentTime;
+  syncPositionState();
 });
 
 playback.addEventListener("durationchange", () => {
   duration.value = Number.isFinite(playback.duration) ? playback.duration : 0;
+  syncPositionState();
 });
 
 playback.addEventListener("ended", nextSong);
@@ -74,6 +76,11 @@ function playSong(index: number) {
   currTrack.value = currPlaylist.value[index];
   playback.src = currTrack.value.streamUrl;
   playback.play();
+}
+
+function seek(seconds: number) {
+  if (!Number.isFinite(seconds)) return;
+  playback.currentTime = Math.max(0, seconds);
 }
 
 function nextSong() {
@@ -95,6 +102,60 @@ function nextSong() {
   }
 }
 
+function prevSong() {
+  if (playback.currentTime > 3) {
+    playback.currentTime = 0;
+  } else {
+    currIndex.value = Math.max(0, currIndex.value - 1);
+    playSong(currIndex.value);
+  }
+}
+
+function syncPositionState() {
+  if (!("mediaSession" in navigator)) return;
+  const dur = playback.duration;
+  if (!Number.isFinite(dur) || dur <= 0) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: dur,
+      playbackRate: playback.playbackRate,
+      position: Math.min(playback.currentTime, dur),
+    });
+  } catch {}
+}
+
+if ("mediaSession" in navigator) {
+  // Playback controls forwarded from the OS / browser chrome.
+  navigator.mediaSession.setActionHandler("play", () => playback.play());
+  navigator.mediaSession.setActionHandler("pause", () => playback.pause());
+  navigator.mediaSession.setActionHandler("previoustrack", prevSong);
+  navigator.mediaSession.setActionHandler("nexttrack", nextSong);
+  navigator.mediaSession.setActionHandler("seekto", (details) => {
+    if (details.seekTime != null) {
+      seek(details.seekTime);
+      syncPositionState();
+    }
+  });
+}
+
+watch(currTrack, (track) => {
+  if (!("mediaSession" in navigator)) return;
+  if (!track) {
+    navigator.mediaSession.metadata = null;
+    return;
+  }
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title,
+    artist: track.artist,
+    artwork: track.coverUrl ? [{ src: track.coverUrl }] : [],
+  });
+});
+
+watch(isPlaying, (playing) => {
+  if (!("mediaSession" in navigator)) return;
+  navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+});
+
 export function useMediaPlayer() {
   function playAlbum(playlist: Track[], index: number = 0) {
     currPlaylist.value = playlist;
@@ -102,15 +163,6 @@ export function useMediaPlayer() {
     playSong(index);
     if (shuffleMode.value) {
       shufflePlaylist();
-    }
-  }
-
-  function prevSong() {
-    if (playback.currentTime > 3) {
-      playback.currentTime = 0;
-    } else {
-      currIndex.value = Math.max(0, currIndex.value - 1);
-      playSong(currIndex.value);
     }
   }
 
@@ -123,11 +175,6 @@ export function useMediaPlayer() {
     } else {
       playback.pause();
     }
-  }
-
-  function seek(seconds: number) {
-    if (!Number.isFinite(seconds)) return;
-    playback.currentTime = Math.max(0, seconds);
   }
 
   function volumeChange(newVolume: number) {

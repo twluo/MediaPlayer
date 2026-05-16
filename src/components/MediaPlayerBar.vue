@@ -318,10 +318,10 @@ onUnmounted(() => {
       <span class="time end">{{ formatDuration(duration) }}</span>
     </div>
 
-    <!-- ── Mobile queue sheet (absolute = always flush) ── -->
+    <!-- Mobile queue sheet -->
     <Transition name="sheet-up">
       <div v-if="expanded" class="queue-sheet">
-        <div class="sheet-header">
+        <div class="sheet-header" @click="expanded = false">
           <button
             class="icon-btn"
             :class="{ active: shuffleMode }"
@@ -764,6 +764,7 @@ onUnmounted(() => {
 .sheet-up-leave-active {
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .sheet-up-enter-from,
 .sheet-up-leave-to {
   transform: translateY(100%);
