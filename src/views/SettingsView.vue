@@ -38,7 +38,11 @@ function onProviderConnect(config: MediaProviderConfig) {
               p.type === "plex" ? "Plex" : "Navidrome"
             }}</span>
             <span class="provider-item-id">{{ p.config.id }}</span>
-            <span class="provider-item-url">{{ p.config.url }}</span>
+            <span class="provider-item-url">{{
+              p.type === "plex" && p.config.serverName
+                ? p.config.serverName
+                : p.config.url
+            }}</span>
           </div>
           <div class="provider-item-actions">
             <button

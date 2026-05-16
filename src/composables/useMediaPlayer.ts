@@ -44,7 +44,6 @@ const shuffleMode = ref<boolean>(
 );
 
 playback.preload = "metadata";
-playback.crossOrigin = "anonymous";
 playback.volume = volumeValue.value;
 
 // Persist preferences whenever they change

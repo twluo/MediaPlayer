@@ -61,10 +61,10 @@ export class NavidromeMediaProvider extends MediaProvider {
   private processAlbum(album: SubsonicAlbum): Album {
     return {
       id: album.id,
-      title: album.name || "???",
-      artist: album.artist || "???",
+      title: album.name || "Unknown Title",
+      artist: album.artist || "Unknown Artist",
       coverUrl: `${this.baseUrl}/rest/getCoverArt?${this.authParams()}&id=${album.id}`,
-      genre: album.genre || "???",
+      genre: album.genre || "Unknown Genre",
       year:
         (
           album.releaseDate?.year ?? album.originalReleaseDate?.year

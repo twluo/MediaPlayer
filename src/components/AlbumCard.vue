@@ -18,8 +18,8 @@ const isCurrentAlbum = computed(
 );
 
 const fetchError = ref<boolean>(false);
-const imageLoaded = ref(false);
-const imageSrc = ref("");
+const imageLoaded = ref<boolean>(false);
+const imageSrc = ref<string>("");
 const cardEl = ref<HTMLElement | null>(null);
 
 let observer: IntersectionObserver | null = null;
@@ -76,6 +76,7 @@ async function handlePlayClick(e: MouseEvent) {
           class="cover"
           :class="{ loaded: imageLoaded }"
           @load="imageLoaded = true"
+          @error="imageLoaded = true"
         />
         <button
           class="play-btn"

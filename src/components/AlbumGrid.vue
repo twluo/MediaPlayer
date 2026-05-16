@@ -17,9 +17,12 @@ const { hasProviders, providers } = useMediaProviders();
 const albums = ref<Album[]>([]);
 const loading = ref<boolean>(true);
 const error = ref<string | null>(null);
+let pendingFetch = false;
 
 async function loadAlbums() {
-  if (loading.value) return;
+  // Prevent overlapping concurrent fetches.
+  if (pendingFetch) return;
+  pendingFetch = true;
   loading.value = true;
   error.value = null;
   try {
@@ -28,18 +31,11 @@ async function loadAlbums() {
     error.value = err instanceof Error ? err.message : "Something went wrong";
   } finally {
     loading.value = false;
+    pendingFetch = false;
   }
 }
 
-onMounted(async () => {
-  try {
-    albums.value = await props.fetcher();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "Something went wrong";
-  } finally {
-    loading.value = false;
-  }
-});
+onMounted(loadAlbums);
 
 watch(providers, loadAlbums, { deep: true });
 </script>
