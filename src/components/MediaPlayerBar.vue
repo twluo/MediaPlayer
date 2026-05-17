@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import { useMediaPlayer, formatDuration } from "../composables/useMediaPlayer";
 import QueuePopup from "./QueuePopup.vue";
+
+const router = useRouter();
 
 const {
   isPlaying,
@@ -47,8 +50,20 @@ const playerBarEl = ref<HTMLElement | null>(null);
 const playerBarH = ref(88);
 let barObserver: ResizeObserver | null = null;
 
+function goToAlbum() {
+  if (currTrack.value) {
+    router.push(
+      `/albums/${currTrack.value.providerId}/${currTrack.value.albumId}`,
+    );
+  }
+}
+
 function openExpanded() {
-  if (window.innerWidth <= 640) expanded.value = !expanded.value;
+  if (window.innerWidth <= 640) {
+    expanded.value = !expanded.value;
+  } else {
+    goToAlbum();
+  }
 }
 
 let savedScrollY = 0;
@@ -101,7 +116,7 @@ onUnmounted(() => {
   <div class="player-bar" ref="playerBarEl">
     <!-- Left: track info (tap to expand on mobile) -->
     <div class="track-info" @click="openExpanded">
-      <div class="track-art">
+      <div class="track-art" @click.stop="goToAlbum">
         <svg
           v-if="currTrack === undefined"
           viewBox="0 0 24 24"
@@ -915,11 +930,9 @@ onUnmounted(() => {
   }
 }
 
-/* cursor hint for track-info on mobile */
-@media (max-width: 640px) {
-  .track-info {
-    cursor: pointer;
-  }
+/* cursor hint for track-info */
+.track-info {
+  cursor: pointer;
 }
 
 /* ── Mobile (≤ 640px) ───────────────────────── */
