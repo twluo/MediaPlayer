@@ -91,7 +91,9 @@ export class PlexMediaProvider extends MediaProvider {
     const mc = data?.MediaContainer;
     if (!mc) throw new Error("No Album Data");
 
-    const coverUrl = this.thumbUrl(mc.thumb);
+    const coverUrl = mc.thumb
+      ? this.thumbUrl(mc.thumb)
+      : this.thumbUrl(mc.grandparentThumb);
 
     const album: Album = {
       id: albumId,
