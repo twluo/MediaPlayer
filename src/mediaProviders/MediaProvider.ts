@@ -26,6 +26,7 @@ export interface Track {
   albumId: string;
   trackNumber: number;
   discNumber: number;
+  rawDuration: number;
   contentType: string;
   title: string;
   artist: string;
@@ -34,6 +35,11 @@ export interface Track {
   streamUrl: string;
   coverUrl: string;
   scrobbleUrl?: string;
+}
+
+export interface ScrobbleInput {
+  track: Track;
+  state: "stopped" | "playing" | "paused";
 }
 
 export abstract class MediaProvider {
@@ -62,4 +68,6 @@ export abstract class MediaProvider {
   abstract fetchRecentAlbums(): Promise<Album[]>;
 
   abstract fetchAlbum(id: string): Promise<Album>;
+
+  abstract scrobble(input: ScrobbleInput): Promise<void>;
 }

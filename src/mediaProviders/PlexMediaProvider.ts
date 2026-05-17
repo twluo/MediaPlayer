@@ -1,12 +1,18 @@
-import type { Album, Track } from "./MediaProvider";
+import type { Album, Track, ScrobbleInput } from "./MediaProvider";
 import { MediaProvider } from "./MediaProvider";
 import { formatDuration } from "../utils/format";
+import { baseHeaders } from "./PlexAuth";
 
 export interface PlexMediaProviderConfig {
   id: string;
   url: string;
   token: string;
   serverName?: string;
+}
+
+export interface PlexScrobbleInput extends ScrobbleInput {
+  continuing: "0" | "1";
+  playbackTime: number;
 }
 
 export class PlexMediaProvider extends MediaProvider {
@@ -18,10 +24,7 @@ export class PlexMediaProvider extends MediaProvider {
   }
 
   private headers(): Record<string, string> {
-    return {
-      "X-Plex-Token": this.token,
-      Accept: "application/json",
-    };
+    return baseHeaders(this.token);
   }
 
   private thumbUrl(thumb: string | undefined | null): string {
@@ -57,6 +60,7 @@ export class PlexMediaProvider extends MediaProvider {
       title: song.title,
       artist: song.grandparentTitle ?? "???",
       duration: formatDuration((song.duration ?? 0) / 1000),
+      rawDuration: (song.duration ?? 0) / 1000,
       streamUrl: this.streamUrl(song.Media?.[0]?.Part?.[0]?.key),
       coverUrl: fallbackCoverUrl,
       providerId: this.id,
@@ -109,5 +113,21 @@ export class PlexMediaProvider extends MediaProvider {
     const songsData: any[] = mc.Metadata ?? [];
     album.tracks = songsData.map((song) => this.mapTrack(song, coverUrl));
     return album;
+  }
+
+  async scrobble(input: PlexScrobbleInput): Promise<void> {
+    const query = new URLSearchParams({
+      ratingKey: input.track.id,
+      key: `/library/metadata/${input.track.id}`,
+      state: input.state,
+      playbackTime: Math.round(input.playbackTime * 1000.0).toString(), //sec to ms
+      time: Math.round(input.playbackTime * 1000.0).toString(), //sec to ms
+      duration: Math.round(
+        (Number(input.track.rawDuration) || 0) * 1000.0,
+      ).toString(),
+      identifier: "com.plexapp.plugins.library",
+    }).toString();
+
+    await this.fetchJson(`/:/timeline?${query}`, this.headers());
   }
 }

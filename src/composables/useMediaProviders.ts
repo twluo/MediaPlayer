@@ -3,13 +3,18 @@ import type {
   Album,
   MediaProvider,
   MediaProviderConfig,
+  Track,
 } from "../mediaProviders/MediaProvider";
+import type { NavidromeScrobbleInput } from "../mediaProviders/NavidromeMediaProvider";
 import {
   MediaProviderTypePlex,
   MediaProviderTypeNavidrome,
 } from "../mediaProviders/MediaProvider";
 import { NavidromeMediaProvider } from "../mediaProviders/NavidromeMediaProvider";
-import { PlexMediaProvider } from "../mediaProviders/PlexMediaProvider";
+import {
+  PlexMediaProvider,
+  type PlexScrobbleInput,
+} from "../mediaProviders/PlexMediaProvider";
 
 const STORAGE_KEY = "media-player:providers";
 const ALBUM_CACHE_KEY = "media-player:album-cache";
@@ -73,6 +78,9 @@ function getInstance(entry: ProviderEntry): MediaProvider {
 const providers = ref<Map<string, ProviderEntry>>(load());
 const enabledProviders = computed(() =>
   [...providers.value.values()].filter((p) => p.enabled),
+);
+const enabledProviderIds = computed(() =>
+  enabledProviders.value.map((p) => p.config.id).join(","),
 );
 
 // Album detail cache — capped at ALBUM_CACHE_MAX entries (keyed "providerId:albumId")
@@ -292,6 +300,40 @@ export function useMediaProviders() {
     return refreshPromise;
   }
 
+  async function scrobble(
+    track: Track,
+    state: "playing" | "paused" | "stopped",
+    playbackTime: number,
+    listeningTime: number,
+    continuing: "0" | "1",
+  ) {
+    const providerId = track.providerId;
+    const provider = providers.value.get(providerId);
+    if (!provider) throw new Error("Invalid Provider");
+    if (provider.type === MediaProviderTypeNavidrome) {
+      const isSubmission =
+        state === "stopped" &&
+        (listeningTime > 240 ||
+          listeningTime > Number(track.rawDuration) * 0.5);
+      const input: NavidromeScrobbleInput = {
+        track: track,
+        state: state,
+        isSubmission: isSubmission,
+      };
+      await getInstance(provider).scrobble(input);
+    } else if (provider.type === MediaProviderTypePlex) {
+      const input: PlexScrobbleInput = {
+        track: track,
+        state: state,
+        continuing: continuing,
+        playbackTime: playbackTime,
+      };
+      await getInstance(provider).scrobble(input);
+    } else {
+      throw new Error("Invalid Provider Type");
+    }
+  }
+
   return {
     providers,
     addProvider,
@@ -301,11 +343,13 @@ export function useMediaProviders() {
     albums,
     albumsLoading,
     albumsError,
+    enabledProviderIds,
     fetchAlbums,
     recentAlbums,
     recentAlbumsLoading,
     recentAlbumsError,
     fetchRecentAlbums,
     fetchAlbum,
+    scrobble,
   };
 }

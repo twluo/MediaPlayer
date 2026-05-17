@@ -1,5 +1,6 @@
-import { ref, watch } from "vue";
-import type { Track } from "@/mediaProviders/MediaProvider";
+import { computed, ref, watch } from "vue";
+import type { Track } from "../mediaProviders/MediaProvider";
+import { useMediaProviders } from "./useMediaProviders";
 
 export { formatDuration } from "../utils/format";
 
@@ -7,6 +8,8 @@ export { formatDuration } from "../utils/format";
 const STORAGE_REPEAT = "media-player:repeatMode";
 const STORAGE_SHUFFLE = "media-player:shuffleMode";
 const STORAGE_VOLUME = "media-player:volume";
+
+const { scrobble } = useMediaProviders();
 
 function readStorage<T>(
   key: string,
@@ -28,8 +31,9 @@ const orderedPlaylist = ref<Track[]>([]);
 const currIndex = ref<number>(0);
 const currTrack = ref<Track | undefined>(undefined);
 const isPlaying = ref<boolean>(false);
-const currentTime = ref<number>(0);
+const playbackTime = ref<number>(0);
 const duration = ref<number>(0);
+const listeningTime = ref(0);
 const volumeValue = ref<number>(readStorage(STORAGE_VOLUME, 0.7, Number));
 const muted = ref<boolean>(false);
 const repeatMode = ref<"off" | "all" | "one">(
@@ -42,6 +46,12 @@ const repeatMode = ref<"off" | "all" | "one">(
 const shuffleMode = ref<boolean>(
   readStorage(STORAGE_SHUFFLE, false, (v) => v === "true"),
 );
+const isContinuing = computed(
+  () =>
+    repeatMode.value !== "off" ||
+    currIndex.value < currPlaylist.value.length - 1,
+);
+let listeningInterval: ReturnType<typeof setInterval> | null = null;
 
 playback.preload = "metadata";
 playback.volume = volumeValue.value;
@@ -50,16 +60,51 @@ playback.volume = volumeValue.value;
 watch(repeatMode, (v) => localStorage.setItem(STORAGE_REPEAT, v));
 watch(shuffleMode, (v) => localStorage.setItem(STORAGE_SHUFFLE, String(v)));
 watch(volumeValue, (v) => localStorage.setItem(STORAGE_VOLUME, String(v)));
+
+function resumeListeningTimer() {
+  if (listeningInterval !== null) return;
+  listeningInterval = setInterval(() => {
+    listeningTime.value++;
+    if (currTrack.value && listeningTime.value % 10 === 0) {
+      scrobble(
+        currTrack.value,
+        "playing",
+        playbackTime.value,
+        listeningTime.value,
+        isContinuing.value ? "1" : "0",
+      );
+    }
+  }, 1000);
+}
+
+function pauseListeningTimer() {
+  if (listeningInterval !== null) {
+    clearInterval(listeningInterval);
+    listeningInterval = null;
+  }
+}
+
 playback.addEventListener("play", () => {
   isPlaying.value = true;
+  resumeListeningTimer();
 });
 
 playback.addEventListener("pause", () => {
   isPlaying.value = false;
+  pauseListeningTimer();
+  if (currTrack.value) {
+    scrobble(
+      currTrack.value,
+      "paused",
+      playbackTime.value,
+      listeningTime.value,
+      isContinuing.value ? "1" : "0",
+    );
+  }
 });
 
 playback.addEventListener("timeupdate", () => {
-  currentTime.value = playback.currentTime;
+  playbackTime.value = playback.currentTime;
   syncPositionState();
 });
 
@@ -84,6 +129,15 @@ function seek(seconds: number) {
 }
 
 function nextSong() {
+  if (currTrack.value) {
+    scrobble(
+      currTrack.value,
+      "stopped",
+      playbackTime.value,
+      listeningTime.value,
+      isContinuing.value ? "1" : "0",
+    );
+  }
   if (repeatMode.value === "one") {
     playback.currentTime = 0;
     playback.play();
@@ -97,7 +151,7 @@ function nextSong() {
     playback.pause();
     playback.removeAttribute("src");
     isPlaying.value = false;
-    currentTime.value = 0;
+    playbackTime.value = 0;
     duration.value = 0;
   }
 }
@@ -139,6 +193,8 @@ if ("mediaSession" in navigator) {
 }
 
 watch(currTrack, (track) => {
+  pauseListeningTimer();
+  listeningTime.value = 0;
   if (!("mediaSession" in navigator)) return;
   if (!track) {
     navigator.mediaSession.metadata = null;
@@ -211,7 +267,10 @@ export function useMediaPlayer() {
     if (currTrack.value === undefined) return;
     const playlist = currPlaylist.value.slice();
     playlist.splice(currIndex.value, 1);
-    playlist.sort(() => Math.random() - 0.5);
+    for (let i = playlist.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [playlist[i], playlist[j]] = [playlist[j]!, playlist[i]!];
+    }
     currPlaylist.value = [currTrack.value].concat(playlist);
     currIndex.value = 0;
   }
@@ -221,8 +280,9 @@ export function useMediaPlayer() {
     currPlaylist,
     currIndex,
     isPlaying,
-    currentTime,
+    currentTime: playbackTime,
     duration,
+    listeningTime,
     playAlbum,
     playSong,
     togglePlay,

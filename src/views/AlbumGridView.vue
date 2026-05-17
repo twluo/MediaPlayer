@@ -4,11 +4,11 @@ import { useMediaProviders } from "../composables/useMediaProviders";
 import AlbumGrid from "../components/AlbumGrid.vue";
 import SearchPopup from "../components/SearchPopup.vue";
 
-const { fetchAlbums, albums, albumsLoading, albumsError, providers } =
+const { fetchAlbums, albums, albumsLoading, albumsError, enabledProviderIds } =
   useMediaProviders();
 
 onMounted(fetchAlbums);
-watch(providers, fetchAlbums, { deep: true });
+watch(enabledProviderIds, fetchAlbums);
 </script>
 
 <template>

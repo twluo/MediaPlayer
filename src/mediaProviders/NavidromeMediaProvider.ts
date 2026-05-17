@@ -1,4 +1,4 @@
-import type { Album, Track } from "./MediaProvider";
+import type { Album, Track, ScrobbleInput } from "./MediaProvider";
 import { MediaProvider } from "./MediaProvider";
 import { formatDuration } from "../utils/format";
 import { Md5 } from "ts-md5";
@@ -30,6 +30,10 @@ export interface NavidromeMediaProviderConfig {
   url: string;
   username: string;
   password: string;
+}
+
+export interface NavidromeScrobbleInput extends ScrobbleInput {
+  isSubmission: boolean;
 }
 
 function randomSalt(length = 6): string {
@@ -84,6 +88,7 @@ export class NavidromeMediaProvider extends MediaProvider {
       title: song.title,
       artist: song.artist ?? "???",
       duration: formatDuration(song.duration),
+      rawDuration: song.duration,
       streamUrl: `${this.baseUrl}/rest/stream?${this.authParams()}&id=${song.id}`,
       coverUrl: `${this.baseUrl}/rest/getCoverArt?${this.authParams()}&id=${song.id}&size=128`,
       providerId: this.id,
@@ -120,5 +125,11 @@ export class NavidromeMediaProvider extends MediaProvider {
     const tracks: Track[] = songs.map((song) => this.processSong(song));
     album.tracks = tracks;
     return album;
+  }
+
+  async scrobble(input: NavidromeScrobbleInput): Promise<void> {
+    await this.fetchJson(
+      `/rest/scrobble?${this.authParams()}&id=${input.track.id}&submission=${input.isSubmission.toString()}&f=json`,
+    );
   }
 }

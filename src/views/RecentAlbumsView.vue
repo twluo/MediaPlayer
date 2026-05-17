@@ -8,11 +8,11 @@ const {
   recentAlbums,
   recentAlbumsLoading,
   recentAlbumsError,
-  providers,
+  enabledProviderIds,
 } = useMediaProviders();
 
 onMounted(fetchRecentAlbums);
-watch(providers, fetchRecentAlbums, { deep: true });
+watch(enabledProviderIds, fetchRecentAlbums);
 </script>
 
 <template>

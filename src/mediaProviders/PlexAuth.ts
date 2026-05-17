@@ -1,7 +1,7 @@
 const PRODUCT_NAME = "BananaMediaPlayer";
 const CLIENT_ID = "0f9bd6f5-4632-46b0-b4ac-5bb16030eaa1";
 
-function baseHeaders(token?: string): Record<string, string> {
+export function baseHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
     "X-Plex-Product": PRODUCT_NAME,
     "X-Plex-Client-Identifier": CLIENT_ID,
