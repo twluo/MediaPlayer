@@ -14,8 +14,8 @@ import {
   pollForToken,
   fetchServers,
   pickBestConnection,
-} from "../mediaProviders/PlexAuth";
-import type { PlexServer } from "../mediaProviders/PlexAuth";
+} from "../mediaProviders/PlexHelper";
+import type { PlexServer } from "../mediaProviders/PlexHelper";
 
 const props = defineProps<{ existingIds: string[] }>();
 

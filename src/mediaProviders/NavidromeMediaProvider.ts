@@ -47,7 +47,6 @@ function randomSalt(length = 6): string {
 export class NavidromeMediaProvider extends MediaProvider {
   user: string;
   password: string;
-  clientId: string = "bananaMediaPlayer";
   version: string = "1.16.1";
 
   constructor(id = "", baseUrl = "", user = "", password = "") {

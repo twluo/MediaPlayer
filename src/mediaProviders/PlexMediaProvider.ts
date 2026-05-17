@@ -1,7 +1,7 @@
 import type { Album, Track, ScrobbleInput } from "./MediaProvider";
 import { MediaProvider } from "./MediaProvider";
 import { formatDuration } from "../utils/format";
-import { baseHeaders } from "./PlexAuth";
+import { baseHeaders } from "./PlexHelper";
 
 export interface PlexMediaProviderConfig {
   id: string;

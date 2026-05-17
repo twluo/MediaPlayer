@@ -42,9 +42,13 @@ export interface ScrobbleInput {
   state: "stopped" | "playing" | "paused";
 }
 
+export const CLIENT_NAME = "BananaMediaPlayer";
+export const CLIENT_ID = "0f9bd6f5-4632-46b0-b4ac-5bb16030eaa1";
+
 export abstract class MediaProvider {
   id: string;
   baseUrl: string;
+  clientId: string = CLIENT_NAME;
 
   constructor(id = "", baseUrl = "") {
     this.id = id;
