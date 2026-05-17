@@ -7,6 +7,7 @@ import {
   nextTick,
   watch,
 } from "vue";
+import Fuse from "fuse.js";
 import { useRoute } from "vue-router";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import { useSearchState } from "../composables/useSearchState";
@@ -17,13 +18,19 @@ const { query, isOpen, close } = useSearchState();
 const route = useRoute();
 const inputRef = ref<HTMLInputElement | null>(null);
 
+const fuse = computed(
+  () =>
+    new Fuse(albums.value, {
+      keys: ["title", "artist"],
+      useTokenSearch: true,
+      threshold: 0.35,
+    }),
+);
+
 const results = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  const q = query.value.trim();
   if (!q) return [];
-  return albums.value.filter(
-    (a) =>
-      a.title.toLowerCase().includes(q) || a.artist.toLowerCase().includes(q),
-  );
+  return fuse.value.search(q).map((r) => r.item);
 });
 
 // Lock background scroll while popup is open by removing the scrollbar,
