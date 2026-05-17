@@ -5,7 +5,11 @@ import type { Album, Track } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import { useMediaPlayer } from "../composables/useMediaPlayer";
 
-const props = defineProps<{ albumId: string; providerId: string }>();
+const props = defineProps<{
+  albumId: string;
+  providerId: string;
+  autoplay?: boolean;
+}>();
 
 const { playAlbum, currTrack, isPlaying } = useMediaPlayer();
 const { fetchAlbum } = useMediaProviders();
@@ -21,6 +25,9 @@ onMounted(async () => {
     const albumData = await fetchAlbum(props.providerId, props.albumId);
     album.value = albumData;
     tracks.value = albumData.tracks || [];
+    if (props.autoplay && tracks.value.length > 0) {
+      playAlbum(tracks.value, 0);
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Something went wrong";
   } finally {
