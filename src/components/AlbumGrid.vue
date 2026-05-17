@@ -1,48 +1,21 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import type { Album } from "../mediaProviders/MediaProvider";
 import AlbumCard from "./AlbumCard.vue";
 
-const props = withDefaults(
-  defineProps<{
-    title?: string;
-    fetcher: () => Promise<Album[]>;
-  }>(),
-  { title: "Albums" },
-);
+defineProps<{
+  title?: string;
+  albums: Album[];
+  loading: boolean;
+  error: string | null;
+}>();
 
-const { hasProviders, providers } = useMediaProviders();
-
-const albums = ref<Album[]>([]);
-const loading = ref<boolean>(true);
-const error = ref<string | null>(null);
-let pendingFetch = false;
-
-async function loadAlbums() {
-  // Prevent overlapping concurrent fetches.
-  if (pendingFetch) return;
-  pendingFetch = true;
-  loading.value = true;
-  error.value = null;
-  try {
-    albums.value = await props.fetcher();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "Something went wrong";
-  } finally {
-    loading.value = false;
-    pendingFetch = false;
-  }
-}
-
-onMounted(loadAlbums);
-
-watch(providers, loadAlbums, { deep: true });
+const { hasProviders } = useMediaProviders();
 </script>
 
 <template>
   <section class="album-grid-section">
-    <h2 class="section-title">{{ props.title }}</h2>
+    <h2 class="section-title">{{ title ?? "Albums" }}</h2>
 
     <div v-if="loading" class="state-message">Loading albums…</div>
 

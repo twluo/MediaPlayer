@@ -1,30 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import type { Album } from "../mediaProviders/MediaProvider";
+import { computed, onMounted } from "vue";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import { useSearchState } from "../composables/useSearchState";
 import AlbumCard from "../components/AlbumCard.vue";
 
-const { fetchAlbums } = useMediaProviders();
+const { fetchAlbums, albums, albumsLoading, albumsError } = useMediaProviders();
 const { query } = useSearchState();
-const allAlbums = ref<Album[]>([]);
-const loading = ref<boolean>(true);
-const error = ref<string | null>(null);
 
-onMounted(async () => {
-  try {
-    allAlbums.value = await fetchAlbums();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "Something went wrong";
-  } finally {
-    loading.value = false;
-  }
-});
+onMounted(fetchAlbums);
 
 const results = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return [];
-  return allAlbums.value.filter(
+  return albums.value.filter(
     (album) =>
       album.title.toLowerCase().includes(q) ||
       album.artist.toLowerCase().includes(q),
@@ -79,13 +67,15 @@ const results = computed(() => {
     </div>
 
     <!-- ── Loading ────────────────────────────────────── -->
-    <div v-if="loading" class="state-message">
+    <div v-if="albumsLoading" class="state-message">
       <div class="spinner" />
       Loading your library…
     </div>
 
     <!-- ── Error ──────────────────────────────────────── -->
-    <div v-else-if="error" class="state-message error">{{ error }}</div>
+    <div v-else-if="albumsError" class="state-message error">
+      {{ albumsError }}
+    </div>
 
     <!-- ── Idle (nothing typed yet) ──────────────────── -->
     <div v-else-if="!query" class="idle-state">

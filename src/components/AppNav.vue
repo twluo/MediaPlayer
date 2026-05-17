@@ -1,5 +1,28 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
+import { ref, computed } from "vue";
+import { RouterLink, useRoute } from "vue-router";
+import { useMediaProviders } from "../composables/useMediaProviders";
+
+const { fetchAlbums, fetchRecentAlbums } = useMediaProviders();
+const route = useRoute();
+
+const refreshFn = computed(() => {
+  if (route.path === "/" || route.path === "/search") return fetchAlbums;
+  if (route.path === "/recent") return fetchRecentAlbums;
+  return null;
+});
+
+const isRefreshing = ref(false);
+
+async function handleRefresh() {
+  if (isRefreshing.value || !refreshFn.value) return;
+  isRefreshing.value = true;
+  try {
+    await refreshFn.value();
+  } finally {
+    isRefreshing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -37,6 +60,21 @@ import { RouterLink } from "vue-router";
       </svg>
       <span class="pill-label">Settings</span>
     </RouterLink>
+
+    <button
+      v-if="refreshFn"
+      class="nav-pill refresh-btn"
+      :class="{ refreshing: isRefreshing }"
+      :disabled="isRefreshing"
+      aria-label="Refresh library"
+      @click="handleRefresh"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+        <path
+          d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+        />
+      </svg>
+    </button>
   </nav>
 </template>
 
@@ -82,6 +120,30 @@ import { RouterLink } from "vue-router";
   background: rgba(30, 30, 30, 0.95);
   color: #1db954;
   border-color: #1db954;
+}
+
+/* ── Refresh button ──────────────────────────────────── */
+.refresh-btn {
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
+.refresh-btn:disabled {
+  cursor: default;
+}
+
+.refresh-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.refresh-btn.refreshing svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Mobile: drop text labels, keep icon-only pills */

@@ -1,10 +1,25 @@
 <script setup lang="ts">
-import { useMediaProviders } from '../composables/useMediaProviders'
-import AlbumGrid from '../components/AlbumGrid.vue'
+import { watch, onMounted } from "vue";
+import { useMediaProviders } from "../composables/useMediaProviders";
+import AlbumGrid from "../components/AlbumGrid.vue";
 
-const { fetchRecentAlbums } = useMediaProviders()
+const {
+  fetchRecentAlbums,
+  recentAlbums,
+  recentAlbumsLoading,
+  recentAlbumsError,
+  providers,
+} = useMediaProviders();
+
+onMounted(fetchRecentAlbums);
+watch(providers, fetchRecentAlbums, { deep: true });
 </script>
 
 <template>
-  <AlbumGrid title="Recently Added" :fetcher="fetchRecentAlbums" />
+  <AlbumGrid
+    title="Recently Added"
+    :albums="recentAlbums"
+    :loading="recentAlbumsLoading"
+    :error="recentAlbumsError"
+  />
 </template>
