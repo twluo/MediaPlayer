@@ -22,8 +22,8 @@ const fuse = computed(
   () =>
     new Fuse(albums.value, {
       keys: ["title", "artist"],
-      useTokenSearch: true,
       threshold: 0.35,
+      ignoreLocation: true,
     }),
 );
 
