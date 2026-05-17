@@ -13,10 +13,6 @@ export default createRouter({
       component: () => import("../views/AlbumDetailView.vue"),
     },
     {
-      path: "/search",
-      component: () => import("../views/SearchView.vue"),
-    },
-    {
       path: "/recent",
       component: () => import("../views/RecentAlbumsView.vue"),
     },

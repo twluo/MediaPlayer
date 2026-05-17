@@ -2,12 +2,14 @@
 import { ref, computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { useMediaProviders } from "../composables/useMediaProviders";
+import { useSearchState } from "../composables/useSearchState";
 
 const { fetchAlbums, fetchRecentAlbums } = useMediaProviders();
+const { isOpen, open } = useSearchState();
 const route = useRoute();
 
 const refreshFn = computed(() => {
-  if (route.path === "/" || route.path === "/search") return fetchAlbums;
+  if (route.path === "/") return fetchAlbums;
   if (route.path === "/recent") return fetchRecentAlbums;
   return null;
 });
@@ -27,14 +29,35 @@ async function handleRefresh() {
 
 <template>
   <nav class="nav-pills">
-    <RouterLink to="/search" class="nav-pill">
+    <button
+      v-if="refreshFn"
+      class="nav-pill refresh-btn"
+      :class="{ refreshing: isRefreshing }"
+      :disabled="isRefreshing"
+      aria-label="Refresh library"
+      @click="handleRefresh"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+        <path
+          d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+        />
+      </svg>
+    </button>
+
+    <button
+      v-if="route.path === '/'"
+      class="nav-pill"
+      :class="{ 'router-link-exact-active': isOpen }"
+      aria-label="Search"
+      @click="open"
+    >
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
         <path
           d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
         />
       </svg>
       <span class="pill-label">Search</span>
-    </RouterLink>
+    </button>
 
     <RouterLink to="/" class="nav-pill">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
@@ -60,10 +83,12 @@ async function handleRefresh() {
       </svg>
       <span class="pill-label">Settings</span>
     </RouterLink>
+  </nav>
 
+  <Transition name="fade">
     <button
       v-if="refreshFn"
-      class="nav-pill refresh-btn"
+      class="refresh-btn"
       :class="{ refreshing: isRefreshing }"
       :disabled="isRefreshing"
       aria-label="Refresh library"
@@ -75,7 +100,7 @@ async function handleRefresh() {
         />
       </svg>
     </button>
-  </nav>
+  </Transition>
 </template>
 
 <style scoped>
@@ -124,8 +149,31 @@ async function handleRefresh() {
 
 /* ── Refresh button ──────────────────────────────────── */
 .refresh-btn {
-  cursor: pointer;
+  position: fixed;
+  top: 16px;
+  left: 20px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #b3b3b3;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.refresh-btn:hover {
+  background: rgba(50, 50, 50, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .refresh-btn:disabled {
@@ -144,6 +192,16 @@ async function handleRefresh() {
   to {
     transform: rotate(360deg);
   }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Mobile: drop text labels, keep icon-only pills */

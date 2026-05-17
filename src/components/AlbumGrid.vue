@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import type { Album } from "../mediaProviders/MediaProvider";
 import AlbumCard from "./AlbumCard.vue";
 
-defineProps<{
+const PAGE_SIZE = 50;
+
+const props = defineProps<{
   title?: string;
   albums: Album[];
   loading: boolean;
@@ -11,6 +14,38 @@ defineProps<{
 }>();
 
 const { hasProviders } = useMediaProviders();
+
+const displayCount = ref(PAGE_SIZE);
+const endMarker = ref<HTMLElement | null>(null);
+
+const visibleAlbums = computed(() => props.albums.slice(0, displayCount.value));
+const hasMore = computed(() => displayCount.value < props.albums.length);
+
+// Reset pagination whenever the album list is replaced (e.g. after a refresh)
+watch(
+  () => props.albums,
+  () => {
+    displayCount.value = PAGE_SIZE;
+  },
+);
+
+let observer: IntersectionObserver | null = null;
+
+function observeSentinel() {
+  observer?.disconnect();
+  if (!endMarker.value) return;
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) displayCount.value += PAGE_SIZE;
+    },
+    { rootMargin: "200px" },
+  );
+  observer.observe(endMarker.value);
+}
+
+onMounted(observeSentinel);
+watch(endMarker, observeSentinel);
+onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
@@ -30,9 +65,16 @@ const { hasProviders } = useMediaProviders();
       No albums found across your providers.
     </div>
 
-    <div v-else class="album-grid">
-      <AlbumCard v-for="album in albums" :key="album.id" :album="album" />
-    </div>
+    <template v-else>
+      <div class="album-grid">
+        <AlbumCard
+          v-for="album in visibleAlbums"
+          :key="album.id"
+          :album="album"
+        />
+      </div>
+      <div v-if="hasMore" ref="endMarker" class="endMarker" />
+    </template>
   </section>
 </template>
 
@@ -89,5 +131,9 @@ const { hasProviders } = useMediaProviders();
 
 .settings-link:hover {
   text-decoration: underline;
+}
+
+.sentinel {
+  height: 1px;
 }
 </style>
