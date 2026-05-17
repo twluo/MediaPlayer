@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import type { Album, Track } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "../composables/useMediaProviders";
@@ -20,7 +20,7 @@ const tracks = ref<Track[]>([]);
 const loading = ref<boolean>(true);
 const error = ref<string | null>(null);
 
-onMounted(async () => {
+async function loadAlbum() {
   try {
     const albumData = await fetchAlbum(props.providerId, props.albumId);
     album.value = albumData;
@@ -33,6 +33,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+}
+
+onMounted(async () => {
+  loadAlbum();
 });
 
 async function playSong(trackId: string) {

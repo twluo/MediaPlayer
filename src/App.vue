@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppNav from "./components/AppNav.vue";
 import MediaPlayerBar from "./components/MediaPlayerBar.vue";
+import SearchPopup from "./components/SearchPopup.vue";
 </script>
 
 <template>
@@ -8,6 +9,7 @@ import MediaPlayerBar from "./components/MediaPlayerBar.vue";
     <AppNav />
     <RouterView />
     <MediaPlayerBar />
+    <SearchPopup />
   </div>
 </template>
 

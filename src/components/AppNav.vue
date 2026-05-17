@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { ref, computed, onMounted } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import { useSearchState } from "../composables/useSearchState";
 
-const { fetchAlbums, fetchRecentAlbums } = useMediaProviders();
+const { fetchAlbums, fetchRecentAlbums, albums } = useMediaProviders();
 const { isOpen, open } = useSearchState();
 const route = useRoute();
+const router = useRouter();
 
 const refreshFn = computed(() => {
   if (route.path === "/") return fetchAlbums;
@@ -25,6 +26,30 @@ async function handleRefresh() {
     isRefreshing.value = false;
   }
 }
+
+function goToRandom() {
+  if (albums.value.length === 0) return;
+  const candidates = albums.value.filter(
+    (a) =>
+      !(
+        a.id === route.params.albumId &&
+        a.providerId === route.params.providerId
+      ),
+  );
+  const pool = candidates.length > 0 ? candidates : albums.value;
+  const album = pool[Math.floor(Math.random() * pool.length)]!;
+  const url = `/albums/${album.providerId}/${album.id}?autoplay=1`;
+  if (route.params.albumId) {
+    router.replace(url);
+  } else {
+    router.push(url);
+  }
+}
+
+onMounted(async () => {
+  await fetchAlbums();
+  await fetchRecentAlbums();
+});
 </script>
 
 <template>
@@ -45,7 +70,6 @@ async function handleRefresh() {
     </button>
 
     <button
-      v-if="route.path === '/'"
       class="nav-pill"
       :class="{ 'router-link-exact-active': isOpen }"
       aria-label="Search"
@@ -74,6 +98,36 @@ async function handleRefresh() {
       </svg>
       <span class="pill-label">Recently Added</span>
     </RouterLink>
+
+    <button
+      v-if="albums.length > 0"
+      class="nav-pill"
+      aria-label="Random album"
+      @click="goToRandom"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+        <!-- Die 1: upper-left, tilted -15deg, showing 2 -->
+        <g transform="rotate(-15, 6, 6)">
+          <path
+            fill-rule="evenodd"
+            d="M2.5,1 H9.5 Q11,1 11,2.5 V9.5 Q11,11 9.5,11 H2.5 Q1,11 1,9.5 V2.5 Q1,1 2.5,1 Z
+               M9.6,3.5 A1.1,1.1 0 1,0 7.4,3.5 A1.1,1.1 0 1,0 9.6,3.5 Z
+               M4.6,8.5 A1.1,1.1 0 1,0 2.4,8.5 A1.1,1.1 0 1,0 4.6,8.5 Z"
+          />
+        </g>
+        <!-- Die 2: lower-right, tilted +15deg, showing 3 -->
+        <g transform="rotate(15, 16, 16)">
+          <path
+            fill-rule="evenodd"
+            d="M12.5,11 H19.5 Q21,11 21,12.5 V19.5 Q21,21 19.5,21 H12.5 Q11,21 11,19.5 V12.5 Q11,11 12.5,11 Z
+               M19.6,13 A1.1,1.1 0 1,0 17.4,13 A1.1,1.1 0 1,0 19.6,13 Z
+               M17.1,16 A1.1,1.1 0 1,0 14.9,16 A1.1,1.1 0 1,0 17.1,16 Z
+               M14.6,19 A1.1,1.1 0 1,0 12.4,19 A1.1,1.1 0 1,0 14.6,19 Z"
+          />
+        </g>
+      </svg>
+      <span class="pill-label">Random</span>
+    </button>
 
     <RouterLink to="/settings" class="nav-pill">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
@@ -117,7 +171,7 @@ async function handleRefresh() {
 .nav-pill {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 7px 14px;
   border-radius: 999px;
   background: rgba(30, 30, 30, 0.85);
@@ -204,14 +258,28 @@ async function handleRefresh() {
   opacity: 0;
 }
 
-/* Mobile: drop text labels, keep icon-only pills */
+/* Mobile: labels stay hidden, no hover on touch */
 @media (max-width: 540px) {
-  .pill-label {
-    display: none;
-  }
-
   .nav-pill {
     padding: 7px 10px;
   }
+}
+
+.pill-label {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  margin-left: 0;
+  transition:
+    max-width 0.2s ease,
+    opacity 0.15s ease,
+    margin-left 0.2s ease;
+}
+
+.nav-pill:hover .pill-label {
+  max-width: 120px;
+  opacity: 1;
+  margin-left: 6px;
 }
 </style>

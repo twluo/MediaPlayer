@@ -2,7 +2,6 @@
 import { watch, onMounted } from "vue";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import AlbumGrid from "../components/AlbumGrid.vue";
-import SearchPopup from "../components/SearchPopup.vue";
 
 const { fetchAlbums, albums, albumsLoading, albumsError, enabledProviderIds } =
   useMediaProviders();
@@ -18,5 +17,4 @@ watch(enabledProviderIds, fetchAlbums);
     :loading="albumsLoading"
     :error="albumsError"
   />
-  <SearchPopup />
 </template>
