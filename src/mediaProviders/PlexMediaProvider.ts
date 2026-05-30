@@ -112,6 +112,9 @@ export class PlexMediaProvider extends MediaProvider {
 
     const songsData: any[] = mc.Metadata ?? [];
     album.tracks = songsData.map((song) => this.mapTrack(song, coverUrl));
+    let duration = 0;
+    album.tracks.forEach((track) => (duration += track.rawDuration));
+    album.duration = formatDuration(duration);
     return album;
   }
 

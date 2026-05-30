@@ -17,6 +17,7 @@ export interface Album {
   genre: string;
   coverUrl: string;
   tracks?: Track[];
+  duration?: string;
   providerId: string;
   addedDate: EpochTimeStamp;
 }

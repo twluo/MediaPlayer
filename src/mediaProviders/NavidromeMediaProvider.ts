@@ -123,6 +123,7 @@ export class NavidromeMediaProvider extends MediaProvider {
     if (songs.length === 0) throw new Error("No Songs Fetched");
     const tracks: Track[] = songs.map((song) => this.processSong(song));
     album.tracks = tracks;
+    album.duration = formatDuration(albumData.duration);
     return album;
   }
 

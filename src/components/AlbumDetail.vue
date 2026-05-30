@@ -96,7 +96,9 @@ const hasMultipleDiscs = computed(() => groupedTracks.value.length > 1);
             <template v-if="album.genre !== 'No Genre'">
               &middot; {{ album.genre }}
             </template>
-            &middot; {{ tracks.length }} tracks
+            <template v-if="album.duration">
+              &middot; {{ tracks.length }} tracks &middot; {{ album.duration }}
+            </template>
           </p>
         </div>
       </aside>
