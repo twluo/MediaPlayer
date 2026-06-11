@@ -334,6 +334,64 @@ export function useMediaProviders() {
     }
   }
 
+  function exportProviders(): string {
+    const exportData = [...providers.value.values()].map((p) => ({
+      type: p.type,
+      config: p.config,
+      enabled: p.enabled,
+    }));
+    return JSON.stringify(exportData, null, 2);
+  }
+
+  function importProviders(jsonString: string): {
+    success: boolean;
+    error?: string;
+    count?: number;
+  } {
+    try {
+      const data = JSON.parse(jsonString);
+      if (!Array.isArray(data)) {
+        return { success: false, error: "Invalid format: expected an array" };
+      }
+
+      let importedCount = 0;
+      for (const entry of data) {
+        if (
+          !entry.type ||
+          !entry.config ||
+          typeof entry.enabled !== "boolean"
+        ) {
+          continue;
+        }
+
+        // Validate required fields based on type
+        if (entry.type === MediaProviderTypeNavidrome) {
+          const { id, url, username, password } = entry.config;
+          if (!id || !url || !username || !password) continue;
+        } else if (entry.type === MediaProviderTypePlex) {
+          const { id, url, token } = entry.config;
+          if (!id || !url || !token) continue;
+        } else {
+          continue;
+        }
+
+        providers.value.set(entry.config.id, {
+          type: entry.type,
+          config: entry.config,
+          enabled: entry.enabled,
+        });
+        importedCount++;
+      }
+
+      return { success: true, count: importedCount };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Invalid JSON format",
+      };
+    }
+  }
+
   return {
     providers,
     addProvider,
@@ -351,5 +409,7 @@ export function useMediaProviders() {
     fetchRecentAlbums,
     fetchAlbum,
     scrobble,
+    exportProviders,
+    importProviders,
   };
 }

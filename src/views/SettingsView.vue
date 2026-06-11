@@ -4,14 +4,77 @@ import MediaProviderDialog from "../components/MediaProviderDialog.vue";
 import type { MediaProviderConfig } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "../composables/useMediaProviders";
 
-const { providers, addProvider, removeProvider, toggleProvider } =
-  useMediaProviders();
+const {
+  providers,
+  addProvider,
+  removeProvider,
+  toggleProvider,
+  exportProviders,
+  importProviders,
+} = useMediaProviders();
 
 const showProviderDialog = ref<boolean>(false);
+const showExportDialog = ref<boolean>(false);
+const showImportDialog = ref<boolean>(false);
+const exportedJson = ref<string>("");
+const importJson = ref<string>("");
+const importError = ref<string | null>(null);
+const importSuccess = ref<string | null>(null);
 
 function onProviderConnect(config: MediaProviderConfig) {
   addProvider(config);
   showProviderDialog.value = false;
+}
+
+function handleExport() {
+  try {
+    exportedJson.value = exportProviders();
+    showExportDialog.value = true;
+  } catch (err) {
+    console.error("Export failed:", err);
+  }
+}
+
+function copyToClipboard() {
+  navigator.clipboard.writeText(exportedJson.value).then(
+    () => {
+      importSuccess.value = "Copied to clipboard!";
+      showExportDialog.value = false;
+      setTimeout(() => {
+        importSuccess.value = null;
+      }, 2000);
+    },
+    (err) => {
+      console.error("Failed to copy:", err);
+    },
+  );
+}
+
+function handleImport() {
+  importJson.value = "";
+  showImportDialog.value = true;
+  importError.value = null;
+}
+
+function executeImport() {
+  if (!importJson.value.trim()) {
+    importError.value = "Please paste JSON data";
+    return;
+  }
+
+  const result = importProviders(importJson.value);
+
+  if (result.success) {
+    importSuccess.value = `Successfully imported ${result.count} provider(s)`;
+    importError.value = null;
+    showImportDialog.value = false;
+    importJson.value = "";
+    setTimeout(() => {
+      importSuccess.value = null;
+    }, 3000);
+  } else {
+    importError.value = result.error || "Import failed";
+  }
 }
 </script>
 
@@ -76,12 +139,41 @@ function onProviderConnect(config: MediaProviderConfig) {
 
       <p v-else class="provider-empty">No providers configured.</p>
 
-      <button class="add-provider-btn" @click="showProviderDialog = true">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-        </svg>
-        Add Provider
-      </button>
+      <div class="provider-actions">
+        <button class="add-provider-btn" @click="showProviderDialog = true">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Add Provider
+        </button>
+        <button
+          class="import-export-btn"
+          :disabled="providers.size === 0"
+          @click="handleExport"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path
+              d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"
+            />
+          </svg>
+          Export
+        </button>
+        <button class="import-export-btn" @click="handleImport">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path
+              d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6-.67l2.59 2.58L17 12.5l-5-5-5 5 1.41 1.41L11 10.33V20h2z"
+            />
+          </svg>
+          Import
+        </button>
+      </div>
+
+      <div v-if="importSuccess" class="status-message success">
+        {{ importSuccess }}
+      </div>
+      <div v-if="importError" class="status-message error">
+        {{ importError }}
+      </div>
     </section>
 
     <MediaProviderDialog
@@ -90,6 +182,104 @@ function onProviderConnect(config: MediaProviderConfig) {
       @close="showProviderDialog = false"
       @connect="onProviderConnect"
     />
+
+    <!-- Export Dialog -->
+    <div
+      v-if="showExportDialog"
+      class="dialog-overlay"
+      @click="showExportDialog = false"
+    >
+      <div class="dialog export-dialog" @click.stop>
+        <div class="dialog-header">
+          <h3 class="dialog-title">Export Providers</h3>
+          <button
+            class="dialog-close"
+            aria-label="Close"
+            @click="showExportDialog = false"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+        <p class="dialog-description">
+          Copy the JSON below to back up your media provider configurations.
+        </p>
+        <textarea
+          class="export-textarea"
+          :value="exportedJson"
+          readonly
+          @click="($event.target as HTMLTextAreaElement).select()"
+        />
+        <div class="dialog-actions">
+          <button
+            class="dialog-button secondary"
+            @click="showExportDialog = false"
+          >
+            Close
+          </button>
+          <button class="dialog-button primary" @click="copyToClipboard">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path
+                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+              />
+            </svg>
+            Copy to Clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Dialog -->
+    <div
+      v-if="showImportDialog"
+      class="dialog-overlay"
+      @click="showImportDialog = false"
+    >
+      <div class="dialog import-dialog" @click.stop>
+        <div class="dialog-header">
+          <h3 class="dialog-title">Import Providers</h3>
+          <button
+            class="dialog-close"
+            aria-label="Close"
+            @click="showImportDialog = false"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+        <p class="dialog-description">
+          Paste your exported JSON configuration below to import providers.
+        </p>
+        <textarea
+          v-model="importJson"
+          class="export-textarea"
+          placeholder="Paste JSON here..."
+        />
+        <div v-if="importError" class="dialog-error">
+          {{ importError }}
+        </div>
+        <div class="dialog-actions">
+          <button
+            class="dialog-button secondary"
+            @click="showImportDialog = false"
+          >
+            Cancel
+          </button>
+          <button class="dialog-button primary" @click="executeImport">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+            Import
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- About -->
     <section class="section">
@@ -346,6 +536,13 @@ function onProviderConnect(config: MediaProviderConfig) {
   margin: 4px 0 10px;
 }
 
+.provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .add-provider-btn {
   display: inline-flex;
   align-items: center;
@@ -361,12 +558,60 @@ function onProviderConnect(config: MediaProviderConfig) {
   transition:
     border-color 0.15s,
     color 0.15s;
-  margin-top: 2px;
 }
 
 .add-provider-btn:hover {
   border-color: rgba(255, 255, 255, 0.35);
   color: #fff;
+}
+
+.import-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #b3b3b3;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.import-export-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.import-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.status-message {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-message.success {
+  background: rgba(29, 185, 84, 0.15);
+  color: #1db954;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+}
+
+.status-message.error {
+  background: rgba(241, 94, 108, 0.15);
+  color: #f15e6c;
+  border: 1px solid rgba(241, 94, 108, 0.3);
 }
 
 /* About */
@@ -388,5 +633,154 @@ function onProviderConnect(config: MediaProviderConfig) {
   font-size: 0.85rem;
   color: #6a6a6a;
   margin: 0;
+}
+
+/* Export Dialog */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.dialog {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dialog-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #6a6a6a;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.dialog-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.dialog-description {
+  padding: 16px 24px 12px;
+  font-size: 0.875rem;
+  color: #b3b3b3;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.export-textarea {
+  flex: 1;
+  margin: 0 24px;
+  padding: 12px;
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  min-height: 200px;
+  max-height: 400px;
+}
+
+.export-textarea::placeholder {
+  color: #4a4a4a;
+}
+
+.export-textarea:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.dialog-error {
+  margin: 0 24px;
+  padding: 10px 12px;
+  background: rgba(241, 94, 108, 0.15);
+  border: 1px solid rgba(241, 94, 108, 0.3);
+  border-radius: 6px;
+  color: #f15e6c;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 20px;
+  justify-content: flex-end;
+}
+
+.dialog-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+  border: none;
+}
+
+.dialog-button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #b3b3b3;
+}
+
+.dialog-button.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dialog-button.primary {
+  background: #1db954;
+  color: #fff;
+}
+
+.dialog-button.primary:hover {
+  background: #1ed760;
 }
 </style>
