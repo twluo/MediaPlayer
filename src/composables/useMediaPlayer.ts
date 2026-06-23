@@ -1,6 +1,10 @@
 import { computed, ref, watch } from "vue";
 import type { Track } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "./useMediaProviders";
+import {
+  useSyncServerSettings,
+  type SessionData,
+} from "./useSyncServerSettings";
 
 export { formatDuration } from "../utils/format";
 
@@ -10,6 +14,7 @@ const STORAGE_SHUFFLE = "media-player:shuffleMode";
 const STORAGE_VOLUME = "media-player:volume";
 
 const { scrobble } = useMediaProviders();
+const { saveSession, getSession } = useSyncServerSettings();
 
 function readStorage<T>(
   key: string,
@@ -66,7 +71,7 @@ function resumeListeningTimer() {
   listeningInterval = setInterval(() => {
     listeningTime.value++;
     if (currTrack.value && listeningTime.value % 10 === 0) {
-      scrobble(
+      scrobbleAndSaveSession(
         currTrack.value,
         "playing",
         playbackTime.value,
@@ -84,16 +89,68 @@ function pauseListeningTimer() {
   }
 }
 
+/**
+ * Saves the current session to the sync server
+ */
+async function saveCurrentSession() {
+  // Only save if there's an active playlist
+  if (currPlaylist.value.length === 0) return;
+
+  const sessionData: SessionData = {
+    playlist: currPlaylist.value,
+    currentIndex: currIndex.value,
+    currentTime: playbackTime.value,
+    isPlaying: isPlaying.value,
+    repeatMode: repeatMode.value,
+    shuffleMode: shuffleMode.value,
+    timestamp: Date.now(),
+  };
+
+  try {
+    await saveSession(sessionData);
+  } catch (error) {
+    // Silently fail - session saving is a nice-to-have feature
+    // and shouldn't interrupt playback or scrobbling
+    console.warn("Failed to save session:", error);
+  }
+}
+
+/**
+ * Wrapper around scrobble that also saves the session
+ */
+async function scrobbleAndSaveSession(
+  track: Track,
+  state: "playing" | "paused" | "stopped",
+  currentTime: number,
+  listeningTimeValue: number,
+  continuing: "0" | "1",
+) {
+  // First scrobble to the media provider
+  await scrobble(track, state, currentTime, listeningTimeValue, continuing);
+
+  // Then save the session to the sync server
+  await saveCurrentSession();
+}
+
 playback.addEventListener("play", () => {
   isPlaying.value = true;
   resumeListeningTimer();
+  if (currTrack.value) {
+    scrobbleAndSaveSession(
+      currTrack.value,
+      "playing",
+      playbackTime.value,
+      listeningTime.value,
+      isContinuing.value ? "1" : "0",
+    );
+  }
 });
 
 playback.addEventListener("pause", () => {
   isPlaying.value = false;
   pauseListeningTimer();
   if (currTrack.value) {
-    scrobble(
+    scrobbleAndSaveSession(
       currTrack.value,
       "paused",
       playbackTime.value,
@@ -130,7 +187,7 @@ function seek(seconds: number) {
 
 function nextSong() {
   if (currTrack.value) {
-    scrobble(
+    scrobbleAndSaveSession(
       currTrack.value,
       "stopped",
       playbackTime.value,
@@ -212,6 +269,76 @@ watch(isPlaying, (playing) => {
   navigator.mediaSession.playbackState = playing ? "playing" : "paused";
 });
 
+/**
+ * Restores a session from saved session data
+ */
+async function restoreSession() {
+  try {
+    const result = await getSession();
+
+    if (!result.success || !result.data) {
+      console.log("No session to restore or failed to fetch:", result.error);
+      return false;
+    }
+
+    const session = result.data;
+
+    // Only restore if there's a valid playlist
+    if (!session.playlist || session.playlist.length === 0) {
+      console.log("No playlist in saved session");
+      return false;
+    }
+
+    // Restore the playlist and settings
+    currPlaylist.value = session.playlist;
+    orderedPlaylist.value = session.playlist;
+    currIndex.value = Math.min(
+      session.currentIndex,
+      session.playlist.length - 1,
+    );
+    repeatMode.value = session.repeatMode;
+    shuffleMode.value = session.shuffleMode;
+
+    // Set up the track and seek to saved position
+    const trackToPlay = session.playlist[currIndex.value];
+    if (trackToPlay) {
+      currTrack.value = trackToPlay;
+      playback.src = trackToPlay.streamUrl;
+
+      // Wait for metadata to load before seeking
+      const seekToPosition = () => {
+        if (session.currentTime > 0 && Number.isFinite(session.currentTime)) {
+          playback.currentTime = session.currentTime;
+        }
+        playback.removeEventListener("loadedmetadata", seekToPosition);
+      };
+
+      playback.addEventListener("loadedmetadata", seekToPosition);
+
+      // If user was playing when session was saved, resume playback
+      if (session.isPlaying) {
+        playback.play().catch(() => {
+          // Auto-play might be blocked by browser, that's okay
+          console.log("Auto-play blocked - user needs to interact first");
+        });
+      }
+
+      console.log(
+        `Session restored: track ${currIndex.value + 1}/${session.playlist.length} at ${session.currentTime.toFixed(1)}s`,
+      );
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn("Failed to restore session:", error);
+    return false;
+  }
+}
+
+// Flag to track if session has been restored
+let sessionRestored = false;
+
 export function useMediaPlayer() {
   function playAlbum(playlist: Track[], index: number = 0) {
     currPlaylist.value = playlist;
@@ -275,6 +402,20 @@ export function useMediaPlayer() {
     currIndex.value = 0;
   }
 
+  /**
+   * Attempts to restore the previous session on load
+   * Returns true if session was restored, false otherwise
+   */
+  async function loadSession(): Promise<boolean> {
+    // Only restore once per app load
+    if (sessionRestored) {
+      return false;
+    }
+
+    sessionRestored = true;
+    return await restoreSession();
+  }
+
   return {
     currTrack,
     currPlaylist,
@@ -297,5 +438,6 @@ export function useMediaPlayer() {
     toggleRepeat,
     toggleShuffle,
     shuffleMode,
+    loadSession,
   };
 }

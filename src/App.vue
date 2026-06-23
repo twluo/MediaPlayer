@@ -1,7 +1,19 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import AppNav from "./components/AppNav.vue";
 import MediaPlayerBar from "./components/MediaPlayerBar.vue";
 import SearchPopup from "./components/SearchPopup.vue";
+import { useMediaPlayer } from "./composables/useMediaPlayer";
+
+const { loadSession } = useMediaPlayer();
+
+// Automatically restore session on app load
+onMounted(async () => {
+  const restored = await loadSession();
+  if (restored) {
+    console.log("Session restored successfully");
+  }
+});
 </script>
 
 <template>

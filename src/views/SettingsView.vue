@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import MediaProviderDialog from "../components/MediaProviderDialog.vue";
 import type { MediaProviderConfig } from "../mediaProviders/MediaProvider";
 import { useMediaProviders } from "../composables/useMediaProviders";
+import { useSyncServerSettings } from "../composables/useSyncServerSettings";
 
 const {
   providers,
@@ -20,6 +21,23 @@ const exportedJson = ref<string>("");
 const importJson = ref<string>("");
 const importError = ref<string | null>(null);
 const importSuccess = ref<string | null>(null);
+
+const cloudExporting = ref(false);
+const cloudImporting = ref(false);
+const syncSessions = ref(false);
+
+const {
+  settings: syncServerSettings,
+  validating,
+  validationError,
+  validationSuccess,
+  setAndValidateUrl,
+  setUrl,
+  clearUrl,
+} = useSyncServerSettings();
+
+const tempSyncServerUrl = ref<string>(syncServerSettings.value.url);
+let validationTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function onProviderConnect(config: MediaProviderConfig) {
   addProvider(config);
@@ -75,6 +93,149 @@ function executeImport() {
   } else {
     importError.value = result.error || "Import failed";
   }
+}
+
+async function handleExportToCloud() {
+  if (!syncServerSettings.value.validated || !syncServerSettings.value.url) {
+    importError.value = "Sync server URL must be validated first";
+    return;
+  }
+
+  cloudExporting.value = true;
+  importError.value = null;
+  importSuccess.value = null;
+
+  try {
+    const jsonData = exportProviders();
+    const url = `${syncServerSettings.value.url}/servers`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Export failed with status ${response.status}`);
+    }
+
+    importSuccess.value = "Successfully exported providers to cloud!";
+    setTimeout(() => {
+      importSuccess.value = null;
+    }, 3000);
+  } catch (err) {
+    importError.value =
+      err instanceof Error
+        ? `Cloud export failed: ${err.message}`
+        : "Cloud export failed";
+    console.error("Cloud export error:", err);
+  } finally {
+    cloudExporting.value = false;
+  }
+}
+
+async function handleImportFromCloud() {
+  if (!syncServerSettings.value.validated || !syncServerSettings.value.url) {
+    importError.value = "Sync server URL must be validated first";
+    return;
+  }
+
+  cloudImporting.value = true;
+  importError.value = null;
+  importSuccess.value = null;
+
+  try {
+    const url = `${syncServerSettings.value.url}/servers`;
+
+    const response = await fetch(url, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Import failed with status ${response.status}`);
+    }
+
+    const jsonData = await response.text();
+    const result = importProviders(jsonData);
+
+    if (result.success) {
+      importSuccess.value = `Successfully imported ${result.count} provider(s) from cloud!`;
+      setTimeout(() => {
+        importSuccess.value = null;
+      }, 3000);
+    } else {
+      importError.value = result.error || "Import failed";
+    }
+  } catch (err) {
+    importError.value =
+      err instanceof Error
+        ? `Cloud import failed: ${err.message}`
+        : "Cloud import failed";
+    console.error("Cloud import error:", err);
+  } finally {
+    cloudImporting.value = false;
+  }
+}
+
+async function handleValidateUrl() {
+  // Cancel any pending validation timeout
+  if (validationTimeout) {
+    clearTimeout(validationTimeout);
+    validationTimeout = null;
+  }
+  await setAndValidateUrl(tempSyncServerUrl.value);
+}
+
+function extractPort(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.port || (urlObj.protocol === "https:" ? "443" : "80");
+  } catch {
+    return null;
+  }
+}
+
+// Watch for changes in the URL input with debouncing
+watch(tempSyncServerUrl, (newUrl, oldUrl) => {
+  // Clear any existing timeout
+  if (validationTimeout) {
+    clearTimeout(validationTimeout);
+    validationTimeout = null;
+  }
+
+  // Don't validate if empty or same as saved URL
+  if (!newUrl.trim() || newUrl.trim() === syncServerSettings.value.url) {
+    return;
+  }
+
+  // Check if port has changed
+  const newPort = extractPort(newUrl);
+  const oldPort = extractPort(oldUrl);
+
+  // If port changed, validate immediately
+  if (newPort && oldPort && newPort !== oldPort) {
+    setAndValidateUrl(newUrl);
+    return;
+  }
+
+  // Otherwise, debounce validation for 1 second
+  validationTimeout = setTimeout(() => {
+    if (newUrl.trim() && newUrl.trim() !== syncServerSettings.value.url) {
+      setAndValidateUrl(newUrl);
+    }
+  }, 1000);
+});
+
+function handleClearUrl() {
+  tempSyncServerUrl.value = "";
+  clearUrl();
+}
+
+function formatDate(timestamp: number | null): string {
+  if (!timestamp) return "Never";
+  return new Date(timestamp).toLocaleString();
 }
 </script>
 
@@ -152,19 +313,96 @@ function executeImport() {
           @click="handleExport"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-            <path
-              d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"
-            />
+            <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z" />
           </svg>
           Export
         </button>
         <button class="import-export-btn" @click="handleImport">
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-            <path
-              d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6-.67l2.59 2.58L17 12.5l-5-5-5 5 1.41 1.41L11 10.33V20h2z"
-            />
+            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
           </svg>
           Import
+        </button>
+      </div>
+
+      <!-- Cloud Export/Import Buttons (only show when server URL is validated) -->
+      <div
+        v-if="syncServerSettings.validated"
+        class="provider-actions cloud-actions"
+      >
+        <button
+          class="cloud-btn"
+          :disabled="providers.size === 0 || cloudExporting"
+          @click="handleExportToCloud"
+        >
+          <svg
+            v-if="!cloudExporting"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            width="16"
+            height="16"
+          >
+            <path
+              d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
+            />
+          </svg>
+          <svg
+            v-else
+            class="spinner"
+            viewBox="0 0 24 24"
+            fill="none"
+            width="16"
+            height="16"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-dasharray="60"
+              stroke-dashoffset="45"
+            />
+          </svg>
+          {{ cloudExporting ? "Exporting..." : "Export to Cloud" }}
+        </button>
+        <button
+          class="cloud-btn"
+          :disabled="cloudImporting"
+          @click="handleImportFromCloud"
+        >
+          <svg
+            v-if="!cloudImporting"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            width="16"
+            height="16"
+          >
+            <path
+              d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"
+            />
+          </svg>
+          <svg
+            v-else
+            class="spinner"
+            viewBox="0 0 24 24"
+            fill="none"
+            width="16"
+            height="16"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-dasharray="60"
+              stroke-dashoffset="45"
+            />
+          </svg>
+          {{ cloudImporting ? "Importing..." : "Import from Cloud" }}
         </button>
       </div>
 
@@ -281,6 +519,109 @@ function executeImport() {
       </div>
     </div>
 
+    <!-- Sync Server URL -->
+    <section class="section">
+      <h2 class="section-title">Sync Server URL</h2>
+      <p class="section-description">
+        Configure a sync server URL for syncing purposes.
+      </p>
+
+      <div class="sync-server-form">
+        <div class="input-group">
+          <div class="input-wrapper">
+            <input
+              v-model="tempSyncServerUrl"
+              type="url"
+              class="url-input"
+              placeholder="https://example.com/api"
+              :disabled="validating"
+            />
+            <svg
+              v-if="validating"
+              class="input-spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              width="18"
+              height="18"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-dasharray="60"
+                stroke-dashoffset="45"
+              />
+            </svg>
+          </div>
+          <button
+            class="validate-btn"
+            :disabled="validating || !tempSyncServerUrl.trim()"
+            @click="handleValidateUrl"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+            Validate
+          </button>
+          <button
+            v-if="syncServerSettings.url"
+            class="clear-btn"
+            :disabled="validating"
+            @click="handleClearUrl"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+            Clear
+          </button>
+        </div>
+
+        <div v-if="syncServerSettings.validated" class="status-badge validated">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+            />
+          </svg>
+          <span>Validated</span>
+          <span class="status-date">
+            (Last checked: {{ formatDate(syncServerSettings.lastChecked) }})
+          </span>
+        </div>
+
+        <!-- Sync Sessions Toggle (only show when validated) -->
+        <div v-if="syncServerSettings.validated" class="sync-toggle-section">
+          <div class="setting-row">
+            <div class="setting-label-group">
+              <label class="setting-label">Sync Sessions</label>
+              <span class="setting-hint">
+                Automatically sync playback sessions to the cloud server
+              </span>
+            </div>
+            <button
+              class="toggle"
+              :class="{ on: syncSessions }"
+              :aria-pressed="syncSessions"
+              @click="syncSessions = !syncSessions"
+            >
+              <span class="toggle-thumb" />
+            </button>
+          </div>
+        </div>
+
+        <div v-if="validationSuccess" class="status-message success">
+          {{ validationSuccess }}
+        </div>
+        <div v-if="validationError" class="status-message error">
+          {{ validationError }}
+        </div>
+      </div>
+    </section>
+
     <!-- About -->
     <section class="section">
       <h2 class="section-title">About</h2>
@@ -343,6 +684,12 @@ function executeImport() {
   gap: 2px;
   font-size: 0.95rem;
   color: #fff;
+}
+
+.setting-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .setting-hint {
@@ -594,6 +941,41 @@ function executeImport() {
   cursor: not-allowed;
 }
 
+.cloud-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cloud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #b3b3b3;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.cloud-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.cloud-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .status-message {
   margin-top: 12px;
   padding: 10px 14px;
@@ -782,5 +1164,162 @@ function executeImport() {
 
 .dialog-button.primary:hover {
   background: #1ed760;
+}
+
+/* Sync Server Styles */
+.section-description {
+  margin: -4px 0 16px;
+  font-size: 0.875rem;
+  color: #b3b3b3;
+  line-height: 1.5;
+}
+
+.section-description code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  font-size: 0.85em;
+  color: #1db954;
+}
+
+.sync-server-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.url-input {
+  flex: 1;
+  width: 100%;
+  padding: 10px 14px;
+  padding-right: 40px; /* Space for spinner */
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.url-input::placeholder {
+  color: #4a4a4a;
+}
+
+.url-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.url-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-spinner {
+  position: absolute;
+  right: 12px;
+  color: #1db954;
+  animation: spin 1s linear infinite;
+  pointer-events: none;
+}
+
+.validate-btn,
+.clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+  white-space: nowrap;
+}
+
+.validate-btn {
+  background: #1db954;
+  color: #fff;
+}
+
+.validate-btn:hover:not(:disabled) {
+  background: #1ed760;
+}
+
+.validate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #b3b3b3;
+}
+
+.clear-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-badge.validated {
+  background: rgba(29, 185, 84, 0.15);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  color: #1db954;
+}
+
+.status-date {
+  color: #b3b3b3;
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+.sync-toggle-section {
+  margin-top: 16px;
 }
 </style>
