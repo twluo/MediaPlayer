@@ -2,6 +2,7 @@ import { ref, watch } from "vue";
 import type { Track } from "../mediaProviders/MediaProvider";
 
 const STORAGE_KEY = "media-player:sync-server-url";
+const STORAGE_KEY_SYNC_SESSIONS = "media-player:sync-sessions-enabled";
 
 export interface SyncServerSettings {
   url: string;
@@ -42,6 +43,11 @@ function save(settings: SyncServerSettings) {
 
 const settings = ref<SyncServerSettings>(load());
 
+// Load sync sessions preference from localStorage
+const syncSessionsEnabled = ref<boolean>(
+  localStorage.getItem(STORAGE_KEY_SYNC_SESSIONS) === "true",
+);
+
 watch(
   settings,
   (newSettings) => {
@@ -49,6 +55,11 @@ watch(
   },
   { deep: true },
 );
+
+// Persist sync sessions preference
+watch(syncSessionsEnabled, (value) => {
+  localStorage.setItem(STORAGE_KEY_SYNC_SESSIONS, String(value));
+});
 
 export function useSyncServerSettings() {
   const validating = ref(false);
@@ -204,6 +215,11 @@ export function useSyncServerSettings() {
     success: boolean;
     error?: string;
   }> {
+    // Check if sync sessions is enabled
+    if (!syncSessionsEnabled.value) {
+      return { success: false, error: "Sync sessions is disabled" };
+    }
+
     // Check if URL is validated
     if (!settings.value.validated || !settings.value.url) {
       return {
@@ -272,6 +288,11 @@ export function useSyncServerSettings() {
     data?: SessionData;
     error?: string;
   }> {
+    // Check if sync sessions is enabled
+    if (!syncSessionsEnabled.value) {
+      return { success: false, error: "Sync sessions is disabled" };
+    }
+
     // Check if URL is validated
     if (!settings.value.validated || !settings.value.url) {
       return {
@@ -331,6 +352,7 @@ export function useSyncServerSettings() {
 
   return {
     settings,
+    syncSessionsEnabled,
     validating,
     validationError,
     validationSuccess,

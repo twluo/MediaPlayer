@@ -14,7 +14,8 @@ const STORAGE_SHUFFLE = "media-player:shuffleMode";
 const STORAGE_VOLUME = "media-player:volume";
 
 const { scrobble } = useMediaProviders();
-const { saveSession, getSession } = useSyncServerSettings();
+const { saveSession, getSession, syncSessionsEnabled } =
+  useSyncServerSettings();
 
 function readStorage<T>(
   key: string,
@@ -93,6 +94,9 @@ function pauseListeningTimer() {
  * Saves the current session to the sync server
  */
 async function saveCurrentSession() {
+  // Only save if sync sessions is enabled
+  if (!syncSessionsEnabled.value) return;
+
   // Only save if there's an active playlist
   if (currPlaylist.value.length === 0) return;
 
@@ -273,6 +277,11 @@ watch(isPlaying, (playing) => {
  * Restores a session from saved session data
  */
 async function restoreSession() {
+  // Only restore if sync sessions is enabled
+  if (!syncSessionsEnabled.value) {
+    return false;
+  }
+
   try {
     const result = await getSession();
 

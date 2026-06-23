@@ -24,10 +24,10 @@ const importSuccess = ref<string | null>(null);
 
 const cloudExporting = ref(false);
 const cloudImporting = ref(false);
-const syncSessions = ref(false);
 
 const {
   settings: syncServerSettings,
+  syncSessionsEnabled,
   validating,
   validationError,
   validationSuccess,
@@ -604,9 +604,9 @@ function formatDate(timestamp: number | null): string {
             </div>
             <button
               class="toggle"
-              :class="{ on: syncSessions }"
-              :aria-pressed="syncSessions"
-              @click="syncSessions = !syncSessions"
+              :class="{ on: syncSessionsEnabled }"
+              :aria-pressed="syncSessionsEnabled"
+              @click="syncSessionsEnabled = !syncSessionsEnabled"
             >
               <span class="toggle-thumb" />
             </button>
