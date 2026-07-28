@@ -4,11 +4,16 @@ import AppNav from "./components/AppNav.vue";
 import MediaPlayerBar from "./components/MediaPlayerBar.vue";
 import SearchPopup from "./components/SearchPopup.vue";
 import { useMediaPlayer } from "./composables/useMediaPlayer";
+import { useMediaProviders } from "./composables/useMediaProviders";
 
 const { loadSession } = useMediaPlayer();
+const { validatePlexConnections } = useMediaProviders();
 
 // Automatically restore session on app load
 onMounted(async () => {
+  // Validate Plex connections before loading anything else
+  await validatePlexConnections();
+
   const restored = await loadSession();
   if (restored) {
     console.log("Session restored successfully");

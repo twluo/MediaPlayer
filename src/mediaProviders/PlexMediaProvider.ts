@@ -8,6 +8,8 @@ export interface PlexMediaProviderConfig {
   url: string;
   token: string;
   serverName?: string;
+  accountToken?: string; // plex.tv account token for refetching servers
+  clientIdentifier?: string; // server's unique ID for matching during refetch
 }
 
 export interface PlexScrobbleInput extends ScrobbleInput {
@@ -17,10 +19,23 @@ export interface PlexScrobbleInput extends ScrobbleInput {
 
 export class PlexMediaProvider extends MediaProvider {
   token: string;
+  accountToken?: string;
+  clientIdentifier?: string;
+  serverName?: string;
 
-  constructor(id = "", baseUrl = "", token = "") {
+  constructor(
+    id = "",
+    baseUrl = "",
+    token = "",
+    accountToken?: string,
+    clientIdentifier?: string,
+    serverName?: string,
+  ) {
     super(id, baseUrl);
     this.token = token;
+    this.accountToken = accountToken;
+    this.clientIdentifier = clientIdentifier;
+    this.serverName = serverName;
   }
 
   private headers(): Record<string, string> {
@@ -132,5 +147,60 @@ export class PlexMediaProvider extends MediaProvider {
     }).toString();
 
     await this.fetchJson(`/:/timeline?${query}`, this.headers());
+  }
+
+  /**
+   * Validates the server connection by attempting a lightweight API call.
+   * Returns true if the connection is valid, false otherwise.
+   */
+  async validateConnection(): Promise<boolean> {
+    try {
+      await this.fetchJson("/", this.headers());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Updates the server URL and token by refetching from plex.tv.
+   * Requires accountToken and clientIdentifier to be set.
+   * Returns true if successfully updated, false if update failed.
+   */
+  async refetchServerConnection(): Promise<{
+    success: boolean;
+    url?: string;
+    token?: string;
+  }> {
+    if (!this.accountToken || !this.clientIdentifier) {
+      return { success: false };
+    }
+
+    console.log("Refetecthing");
+    try {
+      const { fetchServers, pickBestConnection } = await import(
+        "./PlexHelper"
+      );
+      const servers = await fetchServers(this.accountToken);
+      console.log(servers)
+      const matchingServer = servers.find(
+        (s) => s.clientIdentifier === this.clientIdentifier,
+      );
+
+      if (!matchingServer) {
+        return { success: false };
+      }
+
+      const newUrl = pickBestConnection(matchingServer);
+      const newToken = matchingServer.token;
+
+      // Update instance properties
+      this.baseUrl = newUrl;
+      this.token = newToken;
+
+      return { success: true, url: newUrl, token: newToken };
+    } catch {
+      return { success: false };
+    }
   }
 }

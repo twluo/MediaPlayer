@@ -66,8 +66,16 @@ function getInstance(entry: ProviderEntry): MediaProvider {
     const { id, url, username, password } = entry.config;
     entry.instance = new NavidromeMediaProvider(id, url, username, password);
   } else if (entry.type === MediaProviderTypePlex) {
-    const { id, url, token } = entry.config;
-    entry.instance = new PlexMediaProvider(id, url, token);
+    const { id, url, token, accountToken, clientIdentifier, serverName } =
+      entry.config;
+    entry.instance = new PlexMediaProvider(
+      id,
+      url,
+      token,
+      accountToken,
+      clientIdentifier,
+      serverName,
+    );
   } else {
     throw new Error("Invalid Entry");
   }
@@ -119,6 +127,79 @@ watch(
 );
 
 export function useMediaProviders() {
+  /**
+   * Validates all Plex provider connections and attempts to refetch
+   * server info if a connection fails.
+   * Returns an object with validation results.
+   */
+  async function validatePlexConnections(): Promise<{
+    validated: number;
+    refetched: number;
+    failed: number;
+  }> {
+    const plexProviders = [...providers.value.values()].filter(
+      (p) => p.type === MediaProviderTypePlex,
+    );
+
+    let validated = 0;
+    let refetched = 0;
+    let failed = 0;
+
+    for (const entry of plexProviders) {
+      try {
+        const instance = getInstance(entry) as PlexMediaProvider;
+
+        // Test if connection is valid
+        const isValid = await instance.validateConnection();
+
+        if (isValid) {
+          validated++;
+        } else {
+          console.warn(
+            `Plex provider "${entry.config.id}" connection failed, attempting to refetch...`,
+          );
+
+          // Try to refetch the server connection
+          const result = await instance.refetchServerConnection();
+
+          if (result.success && result.url && result.token) {
+            // Update the stored config with new URL and token
+            entry.config.url = result.url;
+            entry.config.token = result.token;
+
+            // Clear the cached instance so it gets recreated with new credentials
+            entry.instance = undefined;
+
+            refetched++;
+            console.log(
+              `Successfully refetched connection for "${entry.config.id}"`,
+            );
+          } else {
+            failed++;
+            console.error(
+              `Failed to refetch connection for "${entry.config.id}"${!instance.accountToken || !instance.clientIdentifier ? " (missing accountToken or clientIdentifier)" : ""}`,
+            );
+          }
+        }
+      } catch (err) {
+        failed++;
+        console.error(
+          `Error validating provider "${entry.config.id}":`,
+          err,
+        );
+      }
+    }
+
+    if (refetched > 0) {
+      console.log(`Refetched ${refetched} Plex connection(s)`);
+    }
+    if (failed > 0) {
+      console.warn(`${failed} Plex connection(s) failed validation`);
+    }
+
+    return { validated, refetched, failed };
+  }
+
   function addProvider(entry: MediaProviderConfig) {
     if (entry === undefined) {
       return;
@@ -411,5 +492,6 @@ export function useMediaProviders() {
     scrobble,
     exportProviders,
     importProviders,
+    validatePlexConnections,
   };
 }

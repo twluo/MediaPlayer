@@ -41,6 +41,7 @@ const plexServers = ref<PlexServer[]>([]);
 const plexSelected = ref<PlexServer | null>(null);
 const plexError = ref<string>("");
 const plexFallbackUrl = ref<string>(""); // shown if window.open was blocked
+const plexAccountToken = ref<string>(""); // store the account token for refetching
 let plexAbort: AbortController | null = null;
 
 // ── Computed ─────────────────────────────────────────────────
@@ -107,6 +108,7 @@ async function startPlexAuth() {
     if (!popup) plexFallbackUrl.value = authUrl; // popup blocked
 
     const token = await pollForToken(pin.id, plexAbort.signal, pin.expiresAt);
+    plexAccountToken.value = token; // Store account token for later refetching
 
     const servers = await fetchServers(token);
     plexServers.value = servers;
@@ -147,6 +149,8 @@ function connect() {
         url: pickBestConnection(plexSelected.value),
         token: plexSelected.value.token,
         serverName: plexSelected.value.name,
+        accountToken: plexAccountToken.value,
+        clientIdentifier: plexSelected.value.clientIdentifier,
       },
     });
     return;

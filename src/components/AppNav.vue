@@ -4,7 +4,8 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useMediaProviders } from "../composables/useMediaProviders";
 import { useSearchState } from "../composables/useSearchState";
 
-const { fetchAlbums, fetchRecentAlbums, albums } = useMediaProviders();
+const { fetchAlbums, fetchRecentAlbums, albums, validatePlexConnections } =
+  useMediaProviders();
 const { isOpen, open } = useSearchState();
 const route = useRoute();
 const router = useRouter();
@@ -21,6 +22,8 @@ async function handleRefresh() {
   if (isRefreshing.value || !refreshFn.value) return;
   isRefreshing.value = true;
   try {
+    // Validate and refetch Plex connections before refreshing data
+    await validatePlexConnections();
     await refreshFn.value();
   } finally {
     isRefreshing.value = false;
